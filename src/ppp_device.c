@@ -222,55 +222,55 @@ static int ppp_recv_entry(struct ppp_device *device)
         rt_sem_take(device->rx_notice, RT_WAITING_FOREVER);
 
         /* uart devcie , recieve data from uart and store data in the recv_buff */
-        rt_device_read(recv_dev, 0, &ch, 1);
-
-        /* begin to recieve data from uart */
-        if (thrans_flag == 1)
+        while (rt_device_read(recv_dev, 0, &ch, 1))
         {
-            /* if recieve 0x7e twice */
-            if (ch == 0x7e && old_ch == 0x7e)
+            /* begin to recieve data from uart */
+            if (thrans_flag == 1)
             {
-                /* choice the least 0x7e as frame head */
-                device->recv_line_buf[0] = ch;
-                device->recv_line_len = 1;
+                /* if recieve 0x7e twice */
+                if (ch == 0x7e && old_ch == 0x7e)
+                {
+                    /* choice the least 0x7e as frame head */
+                    device->recv_line_buf[0] = ch;
+                    device->recv_line_len = 1;
 
-                old_ch = ch;
-            }
-            else if(ch == 0x7e && old_ch == 0x00)
-            {
-                thrans_flag = 2;
-                device->recv_line_buf[device->recv_line_len] = ch;
+                    old_ch = ch;
+                }
+                else if (ch == 0x7e && old_ch == 0x00)
+                {
+                    thrans_flag = 2;
+                    device->recv_line_buf[device->recv_line_len] = ch;
+                }
+                else
+                {
+                    old_ch = 0x00;
+                    device->recv_line_buf[device->recv_line_len] = ch;
+                    device->recv_line_len++;
+                }
+
+                /* when a frame is end, put data into tcpip */
+                if (thrans_flag == 2)
+                {
+                    rt_enter_critical();
+                    pppos_input_tcpip(device->pcb, (u8_t *)device->recv_line_buf, device->recv_line_len + 1);
+                    rt_exit_critical();
+
+                    thrans_flag = 0;
+                    device->recv_line_len = 0;
+                }
             }
             else
             {
-                old_ch = 0x00;
-                device->recv_line_buf[device->recv_line_len] = ch;
-                device->recv_line_len++;
-            }
-
-            /* when a frame is end, put data into tcpip */
-            if (thrans_flag == 2)
-            {
-                rt_enter_critical();
-                pppos_input_tcpip(device->pcb, (u8_t *)device->recv_line_buf, device->recv_line_len + 1);
-                rt_exit_critical();
-
-                thrans_flag = 0;
-                device->recv_line_len = 0;
+                /* if recieve 0x7e, begin to recieve data */
+                if (ch == 0x7e)
+                {
+                    thrans_flag = 1;
+                    old_ch = ch;
+                    device->recv_line_buf[0] = ch;
+                    device->recv_line_len = 1;
+                }
             }
         }
-        else
-        {
-            /* if recieve 0x7e, begin to recieve data */
-            if (ch == 0x7e)
-            {
-                thrans_flag = 1;
-                old_ch = ch;
-                device->recv_line_buf[0] = ch;
-                device->recv_line_len = 1;
-            }
-        }
-
     }
 
 __exit:
@@ -478,7 +478,7 @@ static rt_err_t ppp_device_open(struct rt_device *device, rt_uint16_t oflag)
         result = -RT_ERROR;
         goto __exit;
     }
-    LOG_D("pppapi_connect execute successful, ppp has connected.");
+    LOG_D("pppapi_connect execute successful, waitting connect.");
 
 __exit:
 

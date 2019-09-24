@@ -22,7 +22,7 @@ ppp_device 软件包遵循 Apache-2.0 许可，详见 LICENSE 文件。
 
 ### 1.3 依赖 ###
 
-- RT_Thread 4.0.0+
+- RT_Thread 3.1.x+
 - lwIP 组件（ ppp 功能）
 
 ## 2. 获取方式 ##
