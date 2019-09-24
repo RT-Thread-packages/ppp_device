@@ -35,7 +35,7 @@ static struct ppp_air720 air720;
  *
  */
 
-int ppp_air720_register(void)
+int air720_ppp_register(void)
 {
     int result = RT_EOK;
 
@@ -47,7 +47,7 @@ int ppp_air720_register(void)
 
     return result;
 }
-INIT_ENV_EXPORT(ppp_air720_register);
+INIT_ENV_EXPORT(air720_ppp_register);
 
 int ppp_air720_start(void)
 {
