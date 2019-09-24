@@ -35,7 +35,7 @@ static struct ppp_air720 air720;
  *
  */
 
-int air720_register(void)
+int ppp_air720_register(void)
 {
     int result = RT_EOK;
 
@@ -47,9 +47,9 @@ int air720_register(void)
 
     return result;
 }
-INIT_ENV_EXPORT(air720_register);
+INIT_ENV_EXPORT(ppp_air720_register);
 
-int air720_start(void)
+int ppp_air720_start(void)
 {
     rt_device_t device = RT_NULL;
 
@@ -68,8 +68,8 @@ int air720_start(void)
 
     return RT_EOK;
 }
-INIT_APP_EXPORT(air720_start);
-MSH_CMD_EXPORT(air720_start, a sample create air720 for dail to network);
+INIT_APP_EXPORT(ppp_air720_start);
+MSH_CMD_EXPORT(ppp_air720_start, a sample create air720 for dail to network);
 /*
  * close air720 ppp mode, hang up from network
  *
@@ -99,3 +99,4 @@ int ppp_air720_stop(void)
     return RT_EOK;
 }
 MSH_CMD_EXPORT(ppp_air720_stop, a sample stop air720 for dail to network);
+
