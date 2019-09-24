@@ -28,7 +28,7 @@
 #endif
 
 
-static struct ppp_device *_g_ppp_device = NULL;
+static struct ppp_device *_g_ppp_device = RT_NULL;
 
 /*
  * Receive callback function , release rx_notice when uart acquire data
@@ -393,8 +393,6 @@ static rt_err_t ppp_device_open(struct rt_device *device, rt_uint16_t oflag)
     RT_ASSERT(ppp_device != RT_NULL);
     static rt_device_t serial;
 
-    ppp_device->parent.ref_count++;
-
     ppp_device->ppp_link_status = 1;
     /* Creat a thread to creat ppp recieve function */
     result = ppp_recv_entry_creat(ppp_device);
@@ -582,13 +580,15 @@ int ppp_device_register(struct ppp_device *ppp_device, const char *dev_name, con
 
     rt_strncpy((char *)ppp_device->rely_name, rely_name, rt_strlen(rely_name));
 
+    /* now we supprot only one device */
+    if (_g_ppp_device != RT_NULL)
+    {
+        LOG_E("Only one device support.");
+        RT_ASSERT(_g_ppp_device == RT_NULL);
+    }
+
     /* attention: you can't use ppp_device as a server in you network, unless
      sim of the modem module used supprots getting public IP address. */
-     if(_g_ppp_device != RT_NULL)
-     {
-         RT_ASSERT("Only one device support.");
-     }
-
     /* register ppp device into rt_device frame */
     result = rt_device_register(&ppp_device->parent, dev_name, RT_Device_Class_NetIf);
     if( result == RT_EOK)
