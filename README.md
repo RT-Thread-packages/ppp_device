@@ -22,13 +22,12 @@ ppp_device 软件包遵循 Apache-2.0 许可，详见 LICENSE 文件。
 
 ### 1.3 依赖 ###
 
-- RT_Thread 3.0+
+- RT_Thread 4.0.0+
 - lwIP 组件（ ppp 功能）
-- AT 组件 （AT Client功能）
 
 ## 2. 获取方式 ##
 
-**PPP 组件相关配置选项介绍**
+**PPP 软件包相关配置选项介绍**
 
 
 ```c
@@ -58,17 +57,17 @@ ppp_device 软件包遵循 Apache-2.0 许可，详见 LICENSE 文件。
 
 ppp device 软件包初始化函数如下所示：
 
-模块启动函数，该函数自动调用；没有调用停止函数前，不可再次调用。
+PPP 功能启动函数，该函数自动调用；没有调用停止函数前，不可再次调用。
 
 ```c
-int air720_start(void);
+int ppp_air720_start(void);
 ```
 
 * 初始化模块，获取模块基础信息；
 * 模块拨号，模块进入 PPP 模式；
 * 注册 netdev 设备，接入标准网络框架；
 
-模块停止函数，该函数可以退出 PPP 模式。
+PPP 功能停止函数，该函数可以退出 PPP 模式。
 
 ```c
 int ppp_air720_stop(void);
@@ -98,7 +97,7 @@ msh />[I/ppp.dev] ppp connect successful.
 msh />ifconfig
 network interface device: a0 (Default)           ## 设备名称
 MTU: 1500                                        ## 网络最大传输单元
-MAC: 56 3e 3e 04 03 05                           ## 设备 MAC 地址
+MAC: 95 45 68 39 68 52                           ## 设备 MAC 地址
 FLAGS: UP LINK_UP INTERNET_DOWN DHCP_DISABLE     ## 设备标志
 ip address: 10.32.76.151                         ## 设备 IP 地址
 gw address: 10.64.64.64                          ## 设备网关地址
@@ -122,6 +121,8 @@ msh />ping www.baidu.com
 ## 4. 注意事项
 
 * 一般的SIM卡因为只能从运营商网络获取内网地址，所以不能实现服务器相关功能。
+* 现阶段只支持一个设备通过 PPP 连接网络。
+* 现阶段只支持使用 UART 方式进行数据传输，后续会添加通过 USB 连接 PPP 的方式。
 
 ## 5. 联系方式
 
@@ -129,4 +130,4 @@ xiangxistu
 
 QQ：1254605504
 
-email: xiangxistu@foxmail.com
+email: liuxianliang@rt-thread.com
