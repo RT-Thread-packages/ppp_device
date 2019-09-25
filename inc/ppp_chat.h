@@ -35,7 +35,7 @@ struct modem_chat_data {
     rt_uint8_t expect;      // use CHAT_RESP_xxx
     rt_uint8_t retries;
     rt_uint8_t timeout;     // second
-    rt_uint8_t ignore_cr;
+    rt_bool_t  ignore_cr;   // ignore CR character if it is RT_TRUE
 };
 
 

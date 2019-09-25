@@ -116,12 +116,19 @@ static rt_size_t chat_read_until(rt_device_t serial, void *buffer, rt_size_t siz
     return rt_device_read(serial, 0, buffer, size);
 }
 
+/*
+ * modem_flush_rx , clear data what is in the rx buffer
+ *
+ * @param struct rt_serial_device           *serial
+ *
+ * @return  RT_NULL: none
+ *
+ */
 static void modem_flush_rx(rt_device_t serial)
 {
-    char rdbuf[CHAT_READ_BUF_MAX];
+    char rdbuf[CHAT_READ_BUF_MAX] = {0};
 
-    while (rt_device_read(serial, 0, rdbuf, CHAT_READ_BUF_MAX))
-    {}
+    while (rt_device_read(serial, 0, rdbuf, CHAT_READ_BUF_MAX));
 }
 
 /*
@@ -144,8 +151,7 @@ static rt_err_t modem_chat_once(rt_device_t serial, const struct modem_chat_data
     {
         LOG_D(CHAT_DATA_FMT " transmit --> modem", CHAT_DATA_STR(data));
         rt_device_write(serial, 0, data->transmit, rt_strlen(data->transmit));
-
-        if (rt_strncmp("+++", data->transmit, 3) && data->ignore_cr == RT_TRUE)
+        if (data->ignore_cr == RT_FALSE)
             rt_device_write(serial, 0, "\r", 1);
     }
 
