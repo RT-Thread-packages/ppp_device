@@ -48,6 +48,8 @@ static rt_uint8_t resp_strlen[] =
 
 static const char* resp2str(rt_uint8_t resp_id)
 {
+    if (resp_id == MODEM_CHAT_RESP_NOT_NEED)
+        return "(not need)";
     RT_ASSERT(resp_id < MODEM_CHAT_RESP_MAX);
     return resp_strdata[resp_id];
 }
