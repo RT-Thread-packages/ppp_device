@@ -11,6 +11,7 @@
 #include<rtthread.h>
 #include<ppp_device.h>
 
+#define PPP_DEVICE_NAME "pp"
 
 #define DBG_TAG    "ppp.sample"
 
@@ -24,15 +25,16 @@
 
 #ifdef PPP_DEVICE_USING_AIR720
 #include "ppp_device_air720.h"
+static struct ppp_air720 ppp_device;
 #endif
 #ifdef PPP_DEVICE_USING_M6312
 #include "ppp_device_m6312.h"
+static struct ppp_m6312 ppp_device;
 #endif
 #ifdef PPP_DEVICE_USING_SIM800
 #include "ppp_device_sim800.h"
+static struct ppp_sim800 ppp_device;
 #endif
-
-static struct ppp_sample sample;
 
 /* register device into rt_device frame */
 int ppp_sample_register(void)
@@ -40,13 +42,13 @@ int ppp_sample_register(void)
     int result = RT_EOK;
 
 #ifdef PPP_DEVICE_USING_AIR720
-    result = ppp_air720_register(&sample, PPP_DEVICE_NAME, PPP_CLIENT_NAME, RT_NULL);
+    result = ppp_air720_register(&ppp_device, PPP_DEVICE_NAME, PPP_CLIENT_NAME, RT_NULL);
 #endif
 #ifdef PPP_DEVICE_USING_M6312
-    result = ppp_m6312_register(&sample, PPP_DEVICE_NAME, PPP_CLIENT_NAME, RT_NULL);
+    result = ppp_m6312_register(&ppp_device, PPP_DEVICE_NAME, PPP_CLIENT_NAME, RT_NULL);
 #endif
 #ifdef PPP_DEVICE_USING_SIM800
-    result = ppp_sim800_register(&sample, PPP_DEVICE_NAME, PPP_CLIENT_NAME, RT_NULL);
+    result = ppp_sim800_register(&ppp_device, PPP_DEVICE_NAME, PPP_CLIENT_NAME, RT_NULL);
 #endif
     if (result != RT_EOK)
     {

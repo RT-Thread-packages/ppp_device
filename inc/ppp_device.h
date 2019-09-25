@@ -72,16 +72,19 @@ struct ppp_device
     void *user_data;                            /* reserve */
 };
 
-/* ppp_device base from ppp_device */
-struct ppp_sample
-{
-    struct ppp_device  device;          /* ppp_device struct in ppp_air720 */
-    enum ppp_trans_type type;           /* the type is used to establish a ppp connection */
-};
-
 struct ppp_device_ops
 {
+    rt_err_t  (*init)   (struct ppp_device *dev);
     rt_err_t  (*open)   (struct ppp_device *dev, rt_uint16_t oflag);
+    rt_err_t  (*close)  (struct ppp_device *dev);
+    rt_err_t  (*control)(struct ppp_device *dev, int cmd, void *args);
+};
+
+enum ppp_reci_status
+{
+    DATA_VERIFY,
+    DATA_START,
+    DATA_END
 };
 
 /* store at_client rx_callback function */

@@ -21,7 +21,9 @@
 
 #include <rtdbg.h>
 
-#define PPP_DEV_TABLE_LEN    4
+#define PPP_DATA_BEGIN_END       0x7e
+#define DATA_EFFECTIVE_FLAG      0x00
+#define RECON_ERR_COUNTS         0x02
 
 #if RT_LWIP_TCPTHREAD_STACKSIZE < 2048
 #error "tcpip stack is too small, should greater than 2048."
@@ -165,7 +167,7 @@ static void ppp_status_changed(ppp_pcb *pcb, int err_code, void *ctx)
     case PPPERR_PEERDEAD:
         LOG_E("Connection timeout.");
         pppapi_connect(pcb, 0);
-        if (re_count++ == 2)
+        if (re_count++ == RECON_ERR_COUNTS)
         {
             re_count = 0;
             pppdev->ppp_link_status = 0;
@@ -243,10 +245,10 @@ static int ppp_recv_entry(struct ppp_device *device)
         ppp_device_getchar(recv_dev, device->rx_notice, &ch, RT_WAITING_FOREVER);
 
         /* begin to recieve data from uart */
-        if (thrans_flag == 1)
+        if (thrans_flag == DATA_START)
         {
             /* if recieve 0x7e twice */
-            if (ch == 0x7e && old_ch == 0x7e)
+            if (ch == PPP_DATA_BEGIN_END && old_ch == PPP_DATA_BEGIN_END)
             {
                 /* choice the least 0x7e as frame head */
                 device->recv_line_buf[0] = ch;
@@ -254,35 +256,35 @@ static int ppp_recv_entry(struct ppp_device *device)
 
                 old_ch = ch;
             }
-            else if (ch == 0x7e && old_ch == 0x00)
+            else if (ch == PPP_DATA_BEGIN_END && old_ch == DATA_EFFECTIVE_FLAG)
             {
-                thrans_flag = 2;
+                thrans_flag = DATA_END;
                 device->recv_line_buf[device->recv_line_len] = ch;
             }
             else
             {
-                old_ch = 0x00;
+                old_ch = DATA_EFFECTIVE_FLAG;
                 device->recv_line_buf[device->recv_line_len] = ch;
                 device->recv_line_len++;
             }
 
             /* when a frame is end, put data into tcpip */
-            if (thrans_flag == 2)
+            if (thrans_flag == DATA_END)
             {
                 rt_enter_critical();
                 pppos_input_tcpip(device->pcb, (u8_t *)device->recv_line_buf, device->recv_line_len + 1);
                 rt_exit_critical();
 
-                thrans_flag = 0;
+                thrans_flag = DATA_VERIFY;
                 device->recv_line_len = 0;
             }
         }
         else
         {
             /* if recieve 0x7e, begin to recieve data */
-            if (ch == 0x7e)
+            if (ch == PPP_DATA_BEGIN_END)
             {
-                thrans_flag = 1;
+                thrans_flag = DATA_START;
                 old_ch = ch;
                 device->recv_line_buf[0] = ch;
                 device->recv_line_len = 1;
@@ -375,11 +377,17 @@ __exit:
 static rt_err_t ppp_device_init(struct rt_device *device)
 {
     RT_ASSERT(device != RT_NULL);
+    rt_err_t result = RT_EOK;
 
     struct ppp_device *ppp_device = (struct ppp_device *)device;
     RT_ASSERT(ppp_device != RT_NULL);
 
-    return RT_EOK;
+    result = (ppp_device->ops->init && ppp_device->ops->init(ppp_device));
+    if(result != RT_EOK)
+    {
+        LOG_E("ppp_device->ops->init failed.");
+    }
+    return result;
 }
 
 /*
@@ -502,8 +510,9 @@ __exit:
  */
 static rt_err_t ppp_device_close(struct rt_device *device)
 {
-	extern void ppp_netdev_del(struct netif *ppp_netif);
     RT_ASSERT(device != RT_NULL);
+	extern void ppp_netdev_del(struct netif *ppp_netif);
+    rt_err_t result = RT_EOK;
 
     struct ppp_device *ppp_device = (struct ppp_device *)device;
     RT_ASSERT(ppp_device != RT_NULL);
@@ -518,6 +527,11 @@ static rt_err_t ppp_device_close(struct rt_device *device)
     ppp_netdev_del(&ppp_device->pppif);
     LOG_D("ppp netdev has been detach.");
 
+    result = (ppp_device->ops->close && ppp_device->ops->close(ppp_device));
+    if(result != RT_EOK)
+    {
+        LOG_E("ppp_device->ops->close failed.");
+    }
     /* cut down piont to piont at data link layer */
     return RT_EOK;
 }
@@ -534,11 +548,17 @@ static rt_err_t ppp_device_close(struct rt_device *device)
 static rt_err_t ppp_device_control(struct rt_device *device,int cmd, void *args)
 {
     RT_ASSERT(device != RT_NULL);
+    rt_err_t result = RT_EOK;
 
     struct ppp_device *ppp_device = (struct ppp_device *)device;
     RT_ASSERT(ppp_device != RT_NULL);
 
     /* use ppp_device_control function */
+    result = (ppp_device->ops->control && ppp_device->ops->control(ppp_device, cmd, args));
+    if(result != RT_EOK)
+    {
+        LOG_E("ppp_device->ops->control failed.");
+    }
     return RT_EOK;
 }
 
