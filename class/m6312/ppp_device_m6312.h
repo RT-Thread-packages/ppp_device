@@ -13,6 +13,13 @@
 
 #include <ppp_device.h>
 
-extern int ppp_m6312_register(struct ppp_sample *m6312, const char *dev_name, const char *rely_name, void *user_data);
+/* ppp_device base from ppp_device */
+struct ppp_m6312
+{
+    struct ppp_device  device;          /* ppp_device struct in ppp_air720 */
+    enum ppp_trans_type type;           /* the type is used to establish a ppp connection */
+};
+
+extern int ppp_m6312_register(struct ppp_m6312 *m6312, const char *dev_name, const char *rely_name, void *user_data);
 
 #endif  /* __PPP_M6312_H__ */

@@ -22,12 +22,12 @@
 
 static const struct modem_chat_data mcd[] =
 {
-    {"+++",          MODEM_CHAT_RESP_NOT_NEED,        30, 1, RT_FALSE},
-    {"ATH",          MODEM_CHAT_RESP_OK,              30, 1, RT_TRUE},
-    {"AT",           MODEM_CHAT_RESP_OK,              10, 1, RT_TRUE},
-    {"ATE0",         MODEM_CHAT_RESP_OK,              1,  1, RT_TRUE},
-    {PPP_APN_CMD,    MODEM_CHAT_RESP_OK,              1,  5, RT_TRUE},
-    {PPP_DAIL_CMD,   MODEM_CHAT_RESP_CONNECT,         2, 30, RT_TRUE},
+    {"+++",          MODEM_CHAT_RESP_NOT_NEED,        30, 1, RT_TRUE},
+    {"ATH",          MODEM_CHAT_RESP_OK,              30, 1, RT_FALSE},
+    {"AT",           MODEM_CHAT_RESP_OK,              10, 1, RT_FALSE},
+    {"ATE0",         MODEM_CHAT_RESP_OK,              1,  1, RT_FALSE},
+    {PPP_APN_CMD,    MODEM_CHAT_RESP_OK,              1,  5, RT_FALSE},
+    {PPP_DAIL_CMD,   MODEM_CHAT_RESP_CONNECT,         2, 30, RT_FALSE},
 };
 
 /*
@@ -65,7 +65,10 @@ static rt_err_t ppp_air720_open(struct ppp_device *device, rt_uint16_t oflag)
 /* ppp_air720_ops for ppp_device_ops , a common interface */
 static struct ppp_device_ops air720_ops =
 {
+    RT_NULL,
     ppp_air720_open,
+    RT_NULL,
+    RT_NULL,
 };
 
 /*
@@ -78,7 +81,7 @@ static struct ppp_device_ops air720_ops =
  * @return  ppp_device function piont
  *
  */
-int ppp_air720_register(struct ppp_sample *air720, const char *dev_name, const char *uart_name, void *user_data)
+int ppp_air720_register(struct ppp_air720 *air720, const char *dev_name, const char *uart_name, void *user_data)
 {
     struct ppp_device *ppp_device = RT_NULL;
 

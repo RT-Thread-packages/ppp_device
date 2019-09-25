@@ -22,12 +22,12 @@
 
 static const struct modem_chat_data mcd[] =
 {
-    {"+++",          MODEM_CHAT_RESP_NOT_NEED,        1,  2, RT_FALSE},
-    {"ATH",          MODEM_CHAT_RESP_OK,              30, 3, RT_TRUE},
-    {"AT",           MODEM_CHAT_RESP_OK,              10, 1, RT_TRUE},
-    {"ATE0",         MODEM_CHAT_RESP_OK,              1,  1, RT_TRUE},
-    {PPP_APN_CMD,    MODEM_CHAT_RESP_OK,              1,  5, RT_TRUE},
-    {PPP_DAIL_CMD,   MODEM_CHAT_RESP_CONNECT,         2, 30, RT_TRUE},
+    {"+++",          MODEM_CHAT_RESP_NOT_NEED,        1,  2, RT_TRUE},
+    {"ATH",          MODEM_CHAT_RESP_OK,              30, 3, RT_FALSE},
+    {"AT",           MODEM_CHAT_RESP_OK,              10, 1, RT_FALSE},
+    {"ATE0",         MODEM_CHAT_RESP_OK,              1,  1, RT_FALSE},
+    {PPP_APN_CMD,    MODEM_CHAT_RESP_OK,              1,  5, RT_FALSE},
+    {PPP_DAIL_CMD,   MODEM_CHAT_RESP_CONNECT,         2, 30, RT_FALSE},
 };
 
 /*
@@ -65,7 +65,10 @@ static rt_err_t ppp_sim800_open(struct ppp_device *device, rt_uint16_t oflag)
 /* ppp_sim800_ops for ppp_device_ops , a common interface */
 static struct ppp_device_ops sim800_ops =
 {
+    RT_NULL,
     ppp_sim800_open,
+    RT_NULL,
+    RT_NULL,
 };
 
 /*
@@ -78,7 +81,7 @@ static struct ppp_device_ops sim800_ops =
  * @return  ppp_device function piont
  *
  */
-int ppp_sim800_register(struct ppp_sample *sim800, const char *dev_name, const char *uart_name, void *user_data)
+int ppp_sim800_register(struct ppp_sim800 *sim800, const char *dev_name, const char *uart_name, void *user_data)
 {
     struct ppp_device *ppp_device = RT_NULL;
 

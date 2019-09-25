@@ -66,7 +66,10 @@ static rt_err_t ppp_m6312_open(struct ppp_device *device, rt_uint16_t oflag)
 /* ppp_m6312_ops for ppp_device_ops , a common interface */
 static struct ppp_device_ops m6312_ops =
 {
+    RT_NULL,
     ppp_m6312_open,
+    RT_NULL,
+    RT_NULL,
 };
 
 /*
@@ -79,7 +82,7 @@ static struct ppp_device_ops m6312_ops =
  * @return  ppp_device function piont
  *
  */
-int ppp_m6312_register(struct ppp_sample *m6312, const char *dev_name, const char *uart_name, void *user_data)
+int ppp_m6312_register(struct ppp_m6312 *m6312, const char *dev_name, const char *uart_name, void *user_data)
 {
     struct ppp_device *ppp_device = RT_NULL;
 
