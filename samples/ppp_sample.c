@@ -25,7 +25,14 @@
 /* if you want connect network again, you can use this function to create a new ppp link */
 int ppp_sample_start(void)
 {
-    if(ppp_device_attach(PPP_DEVICE_NAME, PPP_CLIENT_NAME, RT_NULL) != RT_EOK)
+    rt_device_t device = RT_NULL;
+    device = rt_device_find(PPP_DEVICE_NAME);
+    if(device == RT_NULL)
+    {
+        LOG_E("Can't find device (%s).", PPP_DEVICE_NAME);
+        return -RT_ERROR;
+    }
+    if(ppp_device_attach((struct ppp_device *)device, PPP_CLIENT_NAME, RT_NULL) != RT_EOK)
     {
         LOG_E("ppp_device_attach execute failed.");
         return -RT_ERROR;
@@ -38,7 +45,14 @@ MSH_CMD_EXPORT_ALIAS(ppp_sample_start, ppp_start, a sample of ppp device  for da
 /* close ppp link ,turn off modem form network */
 int ppp_sample_stop(void)
 {
-    if(ppp_device_detach(PPP_DEVICE_NAME) != RT_EOK)
+    rt_device_t device = RT_NULL;
+    device = rt_device_find(PPP_DEVICE_NAME);
+    if(device == RT_NULL)
+    {
+        LOG_E("Can't find device (%s).", PPP_DEVICE_NAME);
+        return -RT_ERROR;
+    }
+    if(ppp_device_detach((struct ppp_device *)device) != RT_EOK)
     {
         LOG_E("ppp_device_detach execute failed.");
         return -RT_ERROR;
