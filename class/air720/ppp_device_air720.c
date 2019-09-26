@@ -46,17 +46,28 @@ static rt_err_t ppp_air720_open(struct ppp_device *device, rt_uint16_t oflag)
 
     RT_ASSERT(device != RT_NULL);
 
-    uart_device = rt_device_find(device->rely_name);
+    uart_device = rt_device_find(device->uart_name);
     if (uart_device == RT_NULL)
     {
-        LOG_E("Can't find relying device %s.", device->rely_name);
+        LOG_E("Can't find relying device %s.", device->uart_name);
         return -RT_ERROR;
     }
-    result = rt_device_open(uart_device, RT_DEVICE_OFLAG_RDWR | RT_DEVICE_FLAG_INT_RX);
+
+    oflag = RT_DEVICE_OFLAG_RDWR;
+
+    if (uart_device->flag & RT_DEVICE_FLAG_DMA_RX)
+        oflag |= RT_DEVICE_FLAG_DMA_RX;
+    else if (uart_device->flag & RT_DEVICE_FLAG_INT_RX)
+        oflag |= RT_DEVICE_FLAG_INT_RX;
+
+    if (uart_device->flag & RT_DEVICE_FLAG_DMA_TX)
+        oflag |= RT_DEVICE_FLAG_DMA_TX;
+
+    result = rt_device_open(uart_device, oflag);
     if (result != RT_EOK)
     {
-        LOG_E("relying device open(%s) fail.", device->rely_name);
-        return RT_NULL;
+        LOG_E("(%s) open failed.", device->uart_name);
+        return -RT_ERROR;
     }
 
     return modem_chat(uart_device, mcd, sizeof(mcd) / sizeof(mcd[0]));
@@ -88,6 +99,11 @@ int ppp_air720_register(void)
     struct ppp_air720 *air720 = RT_NULL;
 
     air720 = rt_malloc(sizeof(struct ppp_air720));
+    if(air720 == RT_NULL)
+    {
+        LOG_E("No memory for struct air720.");
+        return -RT_ENOMEM;
+    }
 
     ppp_device = &(air720->device);
     ppp_device->ops = &air720_ops;
@@ -96,4 +112,4 @@ int ppp_air720_register(void)
 
     return ppp_device_register(ppp_device, PPP_DEVICE_NAME, RT_NULL, RT_NULL);
 }
-INIT_ENV_EXPORT(ppp_air720_register);
+INIT_COMPONENT_EXPORT(ppp_air720_register);
