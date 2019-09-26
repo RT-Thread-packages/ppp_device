@@ -9,6 +9,7 @@
  */
 
 #include <ppp_device_sim800.h>
+#include <ppp_chat.h>
 
 #define DBG_TAG    "ppp.sim800"
 

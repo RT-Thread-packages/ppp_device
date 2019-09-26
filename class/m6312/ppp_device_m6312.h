@@ -12,7 +12,6 @@
 #define __PPP_M6312_H__
 
 #include <ppp_device.h>
-#include <ppp_chat.h>
 
 /* ppp_device base from ppp_device */
 struct ppp_m6312

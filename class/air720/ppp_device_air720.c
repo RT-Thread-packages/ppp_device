@@ -9,6 +9,7 @@
  */
 
 #include <ppp_device_air720.h>
+#include <ppp_chat.h>
 
 #define DBG_TAG    "ppp.air720"
 
