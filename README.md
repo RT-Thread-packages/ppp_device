@@ -1,76 +1,131 @@
-# PPP device #
+# PPP Device
 
-## 1. 简介 ##
+## 1. 简介
 
- PPP(Piont to Piont Protocl) 点对点协议，相对于使用AT命令连接网络，PPP 则免去操作众多的AT命令及其解析。使用 PPP device 软件包，PPP连接成功后，便获取 IP 地址和 DNS ；之后就可以像使用网卡一样使用 2G/3G/4G 模块，剩下的工作内容就是使用 Socket 套接字，结合 TCP 和 UDP 协议实现数据的传输，操作会变得更加灵活轻巧，也可以轻巧的移植，获取更高的传输质量，提高网络吞吐量。PPP 是 lwIP 协议的一部分，原生 lwIP 即可支持，无需太多操作即可实现联网。
+PPP Device 软件包，是 RT-Thread 针对不同模块的 lwIP PPP 功能实现的软件包。它使 GPRS 模块不再需要发送 AT 命令，使用 PPP 方式即可实现网络数据传输。
 
-目前 PPP 功能仅支持 Luat Air720 模块，后续会接入更多 2G/3G/4G 模块。
+PPP Device 软件包特点如下：
 
-### 1.1. 目录结构 ###
+- 支持多种 GPRS 模块；
+- 无缝兼容多种应用层网络协议（HTTP、MQTT、TLS 等）；
+- 支持数据差错检测，提供可靠数据传输；
+
+* 提供 CHAT 方式初始化功能，方便设备移植；
+
+目前 PPP 功能支持 Luat Air720，China mobile M6312,  SIMCOM SIM800 模块，后续会接入更多 GPRS 模块。
+
+
+
+对 PPP Device 有疑惑，或者对 PPP Device 感兴趣的开发者欢迎入群详细了解。
+
+QQ群：749347156 [<传送门>](https://jq.qq.com/?_wv=1027&k=5KcuPGI)
+
+### 1.1 框架图
+
+![](docs/figures/ppp_frame.jpg)
+
+- ppp_device 软件包是 lwIP 协议栈中 ppp 功能针对不同设备的具体实现；
+- ppp_device 软件包中实现 netdev 网卡设备，并对接 SAL 抽象层，应用层可直接使用 BSD Socket API 进行网络编程；
+
+### 1.2 目录结构
 
 | 名称 | 说明 |
 | ---- | ---- |
-| src | PPP device 实现源码目录 |
-| inc | PPP device 头文件目录 |
-| sample | 不同设备示例文件目录 |
-| class | 不同设备针对 PPP 组件的移植适配目录 |
-| class/air720 | Air720 设备针对 PPP 组件的移植目录，实现 PPP拨号上网 功能 |
+| src | PPP Device 实现源码目录 |
+| inc | PPP Device 头文件目录 |
+| sample | PPP 功能示例文件目录 |
+| class | 不同设备针对 PPP 功能的移植适配目录 |
+| class/air720 | Air720 设备针对 PPP 功能的移植目录，实现 PPP 拨号上网 功能 |
+| class/sim800 | Sim800 设备针对 PPP 功能的移植目录，实现 PPP 拨号上网 功能 |
+| class/m6312 | M6312 设备针对 PPP 功能的移植目录，实现 PPP 拨号上网 功能 |
 
-### 1.2 许可证 ###
+### 1.3 许可证
 
 ppp_device 软件包遵循 Apache-2.0 许可，详见 LICENSE 文件。
 
-### 1.3 依赖 ###
+### 1.4 依赖
 
-- RT_Thread 3.1.x+
+- RT-Thread 3.1.0+
 - lwIP 组件（ ppp 功能）
 
-## 2. 获取方式 ##
+## 2. 获取方式
 
-**PPP 软件包相关配置选项介绍**
+**PPP Device 软件包相关配置选项介绍**
 
 
 ```c
---- PPP DEVICE: lwIP PPP porting for different device
+[*] PPP DEVICE: lwIP PPP porting for different device
     [ ]   Enable debug log output
     [ ]   Enbale authorize connect feature
     [*]   Enable lin status detect feature
     (1)     Link status detecct timeout
+          Select Internet Service Provider (china mobile)  --->
           Select modem type (Luat Air720)  --->
-          Select network operator (china mobile)  --->
-    [*]   nable air720 ppp device samples
-    (a0)    air720 device name
-    (uart3) air720 ppp device uart name
+    [*]    Enable ppp device sample
+    (uart3) ppp device uart name
           Version (latest)  --->
 ```
 - **Enable debug log output:** 开启调试日志功能
 - **Enbale authorize connect feature:** 开启身份认证功能
 - **Enable lin status detect feature:** PPP链路连接监控，检测链路连接正常；设置为 0 则不开启链路监控；
 - **Select modem type:** 模块选择
-- **Select network operator:** 网络运营商选择
-- **Enable air720 ppp device samples:**  选择模块后会提示的模块使用示例
-- **air720 device name:** 模块名称，注册的网卡名称将会与该名称一致
-- **air720 ppp device uart name:** 模块使用的串口
+- **Select Internet Service Provider:** 网络运营商选择
+- **Enable ppp device sample:**  选择模块后会提示的模块使用示例
+- **ppp device uart name:** 模块使用的串口
 - **Version:** 软件包版本号
 
 ## 3. 使用方式
 
-ppp device 软件包初始化函数如下所示：
+PPP Device 软件包初始化函数如下所示：
 
-PPP 功能启动函数，该函数自动调用；没有调用停止函数前，不可再次调用。
+**PPP 功能启动函数，该函数自动调用；没有调用停止函数前，不可再次调用**
 
 ```c
-int ppp_air720_start(void);
+int ppp_sample_start(void)
+{
+    rt_device_t device = RT_NULL;
+    device = rt_device_find(PPP_DEVICE_NAME);
+    if(device == RT_NULL)
+    {
+        LOG_E("Can't find device (%s).", PPP_DEVICE_NAME);
+        return -RT_ERROR;
+    }
+    if(ppp_device_attach((struct ppp_device *)device, PPP_CLIENT_NAME, RT_NULL) != RT_EOK)
+    {
+        LOG_E("ppp_device_attach execute failed.");
+        return -RT_ERROR;
+    }
+    return RT_EOK;
+}
+// 自动初始化
+INIT_APP_EXPORT(ppp_sample_start);
+// 命令导出到MSH( ppp_sample_start 变更为ppp_start )
+MSH_CMD_EXPORT_ALIAS(ppp_sample_start, ppp_start, a sample of ppp device  for dailing to network);
 ```
 
-* 初始化模块，获取模块基础信息；
 * 模块拨号，模块进入 PPP 模式；
 * 注册 netdev 设备，接入标准网络框架；
 
-PPP 功能停止函数，该函数可以退出 PPP 模式。
+**PPP 功能停止函数，该函数可以退出 PPP 模式**
 
 ```c
-int ppp_air720_stop(void);
+int ppp_sample_stop(void)
+{
+    rt_device_t device = RT_NULL;
+    device = rt_device_find(PPP_DEVICE_NAME);
+    if(device == RT_NULL)
+    {
+        LOG_E("Can't find device (%s).", PPP_DEVICE_NAME);
+        return -RT_ERROR;
+    }
+    if(ppp_device_detach((struct ppp_device *)device) != RT_EOK)
+    {
+        LOG_E("ppp_device_detach execute failed.");
+        return -RT_ERROR;
+    }
+    return RT_EOK;
+}
+MSH_CMD_EXPORT_ALIAS(ppp_sample_stop, ppp_stop, a sample of ppp device for turning off network);
 ```
 
 * 退出 PPP 模式，模块退出拨号模式；
@@ -86,7 +141,6 @@ int ppp_air720_stop(void);
 lwIP-2.0.2 initialized!
 [I/sal.skt] Socket Abstraction Layer initialize success.
 [I/ppp.chat] (uart3) has control by modem_chat.
-[I/ppp.chat] chat success
 [I/ppp.dev] (uart3) is used by ppp_device.
 msh />[I/ppp.dev] ppp connect successful.
 ```
@@ -95,7 +149,7 @@ msh />[I/ppp.dev] ppp connect successful.
 
 ```shell
 msh />ifconfig
-network interface device: a0 (Default)           ## 设备名称
+network interface device: pp (Default)           ## 设备名称
 MTU: 1500                                        ## 网络最大传输单元
 MAC: 95 45 68 39 68 52                           ## 设备 MAC 地址
 FLAGS: UP LINK_UP INTERNET_DOWN DHCP_DISABLE     ## 设备标志
@@ -116,18 +170,21 @@ msh />ping www.baidu.com
 60 bytes from 183.232.231.172 icmp_seq=3 ttl=55 time=78 ms
 ```
 
-`ping` 命令测试正常说明 PPP DEVICE 设备网络连接成功，之后可以使用 SAL（套接字抽象层） 抽象出来的标准 BSD Socket APIs 进行网络开发（MQTT、HTTP、MbedTLS、NTP、Iperf 等）。
+`ping` 命令测试正常说明 PPP Device 设备网络连接成功，之后可以使用 SAL（套接字抽象层） 抽象出来的标准 BSD Socket APIs 进行网络开发（MQTT、HTTP、MbedTLS、NTP、Iperf 等）。
 
 ## 4. 注意事项
 
 * 一般的SIM卡因为只能从运营商网络获取内网地址，所以不能实现服务器相关功能。
-* 现阶段只支持一个设备通过 PPP 连接网络。
-* 现阶段只支持使用 UART 方式进行数据传输，后续会添加通过 USB 连接 PPP 的方式。
+* 目前只支持一个设备通过 PPP 连接网络。
+* 建议不要打开 RT_DEVICE_FLAG_DMA_TX
+* 如果网络环境不好，建议关闭 Enable lin status detect feature 选项，或调整成大一点的时间。
 
 ## 5. 联系方式
 
-xiangxistu
+联系人：xiangxistu
 
-QQ：1254605504
+Email: liuxianliang@rt-thread.com
 
-email: liuxianliang@rt-thread.com
+## 6. 致谢
+
+感谢网友 [@xfan1024](https://github.com/xfan1024) 的一些贡献及建议，在制作PPP DEVICE 时给与的帮助。提出了很多宝贵的意见来一同完善PPP DEVICE 软件包。

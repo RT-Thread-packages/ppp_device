@@ -18,9 +18,12 @@
 #include <netif/ppp/pppapi.h>
 #include <lwip/dns.h>
 #include <lwip/netif.h>
-#include <ppp_chat.h>
 
-#define PPP_DAIL_CMD         "ATD*99#"                                    /* common dailing cmd */
+#ifndef PPP_DEVICE_NAME
+#define PPP_DEVICE_NAME "pp"
+#endif
+
+#define PPP_DAIL_CMD         "ATD*99#"                                  /* common dailing cmd */
 #ifdef  PPP_APN_CMCC
 #define PPP_APN_CMD          "AT+CGDCONT=1,\"IP\",\"CMNET\""            /* China Mobile Communication Company */
 #endif
@@ -53,7 +56,7 @@ enum ppp_conn_type
 struct ppp_device
 {
     struct rt_device parent;                    /* join rt_device frame */
-    const char rely_name[RT_NAME_MAX];          /* the name of the low-level driver device */
+    char *uart_name;                            /* the name of the low-level driver device */
     const struct ppp_device_ops *ops;           /* ppp device ops interface */
     enum ppp_conn_type conn_type;               /* using usb or uart */
 
@@ -65,7 +68,7 @@ struct ppp_device
     rt_size_t recv_bufsz;                       /* The maximum supported receive data length */
 
     rt_sem_t rx_notice;                         /* attention uart to recieve data delivery to tcpip */
-    rt_mutex_t lock;                            /* protect uart  */
+    rt_mutex_t lock;                            /* protect uart */
 
     rt_thread_t recv_tid;                       /* recieve thread point */
     rt_bool_t ppp_link_status;                  /* if ppp link is shut down, close recieve thread and shut down */
@@ -80,10 +83,19 @@ struct ppp_device_ops
     rt_err_t  (*control)(struct ppp_device *dev, int cmd, void *args);
 };
 
+enum ppp_reci_status
+{
+    PPP_DATA_VERIFY,
+    PPP_DATA_START,
+    PPP_DATA_END
+};
+
 /* store at_client rx_callback function */
 typedef  rt_err_t (*uart_rx_cb)(rt_device_t dev, rt_size_t size);
 
 /* offer register funciton to user */
-int ppp_device_register(struct ppp_device *ppp_device, const char *dev_name, const char *rely_name, void *user_data);
+int ppp_device_register(struct ppp_device *ppp_device, const char *dev_name, const char *uart_name, void *user_data);
+int ppp_device_attach(struct ppp_device *ppp_device, char *uart_name, void *user_data);
+int ppp_device_detach(struct ppp_device *ppp_device);
 
 #endif /* __PPP_DEVICE_H__ */

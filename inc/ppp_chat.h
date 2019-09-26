@@ -35,9 +35,9 @@ struct modem_chat_data {
     rt_uint8_t expect;      // use CHAT_RESP_xxx
     rt_uint8_t retries;
     rt_uint8_t timeout;     // second
+    rt_bool_t  ignore_cr;   // ignore CR character if it is RT_TRUE
 };
 
-
-rt_err_t modem_chat(rt_device_t serial, const struct modem_chat_data *data, rt_size_t len);
+rt_err_t modem_chat(char *uart_name, const struct modem_chat_data *data, rt_size_t len);
 
 #endif  /* __MODEM_CHAT_H__ */

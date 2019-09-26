@@ -117,6 +117,21 @@ static rt_size_t chat_read_until(rt_device_t serial, void *buffer, rt_size_t siz
 }
 
 /*
+ * modem_flush_rx , clear data what is in the rx buffer
+ *
+ * @param struct rt_serial_device           *serial
+ *
+ * @return  RT_NULL: none
+ *
+ */
+static void modem_flush_rx(rt_device_t serial)
+{
+    char rdbuf[CHAT_READ_BUF_MAX] = {0};
+
+    while (rt_device_read(serial, 0, rdbuf, CHAT_READ_BUF_MAX));
+}
+
+/*
  * modem_chat_once , send an order to control modem
  *
  * @param struct rt_serial_device           *serial
@@ -134,9 +149,10 @@ static rt_err_t modem_chat_once(rt_device_t serial, const struct modem_chat_data
 
     if (data->transmit)
     {
-        LOG_D(CHAT_DATA_FMT" transmit --> modem", CHAT_DATA_STR(data));
+        LOG_D(CHAT_DATA_FMT " transmit --> modem", CHAT_DATA_STR(data));
         rt_device_write(serial, 0, data->transmit, rt_strlen(data->transmit));
-        rt_device_write(serial, 0, "\r", 1);
+        if (data->ignore_cr == RT_FALSE)
+            rt_device_write(serial, 0, "\r", 1);
     }
 
     if (data->expect == MODEM_CHAT_RESP_NOT_NEED)
@@ -189,6 +205,7 @@ static rt_err_t modem_chat_internal(rt_device_t serial, const struct modem_chat_
         LOG_D(CHAT_DATA_FMT" running", CHAT_DATA_STR(&data[i]));
         for (retry_time = 0; retry_time < data[i].retries; retry_time++)
         {
+            modem_flush_rx(serial);
             err = modem_chat_once(serial, &data[i]);
             if (err == RT_EOK)
                 break;
@@ -206,17 +223,43 @@ static rt_err_t modem_chat_internal(rt_device_t serial, const struct modem_chat_
 /*
  * modem_chat , a function for ppp dailing to network
  *
- * @param struct rt_serial_device           *serial
+ * @param struct ppp_device                 *device
  *        const struct modem_chat_data      *data
  *        rt_size_t                         len
  *
  * @return  0: execute successful
  *
  */
-rt_err_t modem_chat(rt_device_t serial, const struct modem_chat_data *data, rt_size_t len)
+rt_err_t modem_chat(char *uart_name, const struct modem_chat_data *data, rt_size_t len)
 {
-    rt_err_t (*old_rx_ind)(rt_device_t dev, rt_size_t size) = NULL;
-    rt_err_t err;
+    rt_err_t (*old_rx_ind)(rt_device_t dev, rt_size_t size) = RT_NULL;
+
+    rt_err_t err = RT_EOK;
+    rt_device_t serial = RT_NULL;
+    rt_uint16_t oflag = 0;
+
+    serial = rt_device_find(uart_name);
+    if (serial == RT_NULL)
+    {
+        LOG_E("Can't find uart device %s.", uart_name);
+        return -RT_ERROR;
+    }
+
+    oflag = RT_DEVICE_OFLAG_RDWR;
+
+    if (serial->flag & RT_DEVICE_FLAG_DMA_RX)
+        oflag |= RT_DEVICE_FLAG_DMA_RX;
+    else if (serial->flag & RT_DEVICE_FLAG_INT_RX)
+        oflag |= RT_DEVICE_FLAG_INT_RX;
+
+    if (serial->flag & RT_DEVICE_FLAG_DMA_TX)
+        oflag |= RT_DEVICE_FLAG_DMA_TX;
+
+    if (rt_device_open(serial, oflag) != RT_EOK)
+    {
+        LOG_E("(%s) open failed.", uart_name);
+        return -RT_ERROR;
+    }
 
     rt_completion_init(&rx_comp_p);
     old_rx_ind = serial->rx_indicate;
@@ -229,7 +272,6 @@ rt_err_t modem_chat(rt_device_t serial, const struct modem_chat_data *data, rt_s
         LOG_E("chat failed");
         goto __exit;
     }
-    LOG_I("chat success");
 
     serial->rx_indicate = old_rx_ind;
 __exit:
