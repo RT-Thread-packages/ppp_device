@@ -25,11 +25,10 @@
 /* if you want connect network again, you can use this function to create a new ppp link */
 int ppp_sample_start(void)
 {
-    rt_err_t result = RT_EOK;
-    result = ppp_device_attach(PPP_DEVICE_NAME, PPP_CLIENT_NAME, RT_NULL);
-    if(result != RT_EOK)
+    if(ppp_device_attach(PPP_DEVICE_NAME, PPP_CLIENT_NAME, RT_NULL) != RT_EOK)
     {
         LOG_E("ppp_device_attach execute failed.");
+        return -RT_ERROR;
     }
     return RT_EOK;
 }
@@ -39,11 +38,10 @@ MSH_CMD_EXPORT_ALIAS(ppp_sample_start, ppp_start, a sample of ppp device  for da
 /* close ppp link ,turn off modem form network */
 int ppp_sample_stop(void)
 {
-    rt_err_t result = RT_EOK;
-    result = ppp_device_detach(PPP_DEVICE_NAME);
-    if(result != RT_EOK)
+    if(ppp_device_detach(PPP_DEVICE_NAME) != RT_EOK)
     {
         LOG_E("ppp_device_detach execute failed.");
+        return -RT_ERROR;
     }
     return RT_EOK;
 }
