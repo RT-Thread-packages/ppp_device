@@ -20,6 +20,6 @@ struct ppp_m6312
     enum ppp_trans_type type;           /* the type is used to establish a ppp connection */
 };
 
-extern int ppp_m6312_register(struct ppp_m6312 *m6312, const char *dev_name, const char *rely_name, void *user_data);
+extern int ppp_m6312_register(void);
 
 #endif  /* __PPP_M6312_H__ */

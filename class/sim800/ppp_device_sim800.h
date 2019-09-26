@@ -20,6 +20,6 @@ struct ppp_sim800
     enum ppp_trans_type type;           /* the type is used to establish a ppp connection */
 };
 
-extern int ppp_sim800_register(struct ppp_sim800 *sim800, const char *dev_name, const char *rely_name, void *user_data);
+extern int ppp_sim800_register(void);
 
 #endif  /* __PPP_AIR720_H__ */

@@ -74,23 +74,26 @@ static struct ppp_device_ops air720_ops =
 /*
  * register air720 into ppp_device
  *
- * @param struct ppp_air720 *       piont
- *        const char *              name
- *        int                       flag
- *        void *                    resever data
+ * @parameter   RT_NULL
+ *
+ *
+ *
+ *
  * @return  ppp_device function piont
  *
  */
-int ppp_air720_register(struct ppp_air720 *air720, const char *dev_name, const char *uart_name, void *user_data)
+int ppp_air720_register(void)
 {
     struct ppp_device *ppp_device = RT_NULL;
+    struct ppp_air720 *air720 = RT_NULL;
 
-    RT_ASSERT(air720 != RT_NULL);
+    air720 = rt_malloc(sizeof(struct ppp_air720));
 
     ppp_device = &(air720->device);
     ppp_device->ops = &air720_ops;
 
     LOG_D("ppp air720 is registering ppp_device");
 
-    return ppp_device_register(ppp_device, dev_name, uart_name, user_data);
+    return ppp_device_register(ppp_device, PPP_DEVICE_NAME, RT_NULL, RT_NULL);
 }
+INIT_ENV_EXPORT(ppp_air720_register);

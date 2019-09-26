@@ -75,23 +75,25 @@ static struct ppp_device_ops m6312_ops =
 /*
  * register m6312 into ppp_device
  *
- * @param struct ppp_m6312 *       piont
- *        const char *              name
- *        int                       flag
- *        void *                    resever data
+ * @param
+ *
+ *
+ *
  * @return  ppp_device function piont
  *
  */
-int ppp_m6312_register(struct ppp_m6312 *m6312, const char *dev_name, const char *uart_name, void *user_data)
+int ppp_m6312_register(void)
 {
     struct ppp_device *ppp_device = RT_NULL;
+    struct ppp_m6312 *m6312 = RT_NULL;
 
-    RT_ASSERT(m6312 != RT_NULL);
+    m6312 = rt_malloc(sizeof(struct ppp_m6312));
 
     ppp_device = &(m6312->device);
     ppp_device->ops = &m6312_ops;
 
     LOG_D("ppp m6312 is registering ppp_device");
 
-    return ppp_device_register(ppp_device, dev_name, uart_name, user_data);
+    return ppp_device_register(ppp_device, PPP_DEVICE_NAME, RT_NULL, RT_NULL);
 }
+INIT_ENV_EXPORT(ppp_m6312_register);

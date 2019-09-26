@@ -27,7 +27,7 @@ static const struct modem_chat_data mcd[] =
     {"AT",           MODEM_CHAT_RESP_OK,              10, 1, RT_FALSE},
     {"ATE0",         MODEM_CHAT_RESP_OK,              1,  1, RT_FALSE},
     {PPP_APN_CMD,    MODEM_CHAT_RESP_OK,              1,  5, RT_FALSE},
-    {PPP_DAIL_CMD,   MODEM_CHAT_RESP_CONNECT,         2, 30, RT_FALSE},
+    {PPP_DAIL_CMD,   MODEM_CHAT_RESP_CONNECT,         1, 30, RT_FALSE},
 };
 
 /*
@@ -74,23 +74,24 @@ static struct ppp_device_ops sim800_ops =
 /*
  * register sim800 into ppp_device
  *
- * @param struct ppp_sim800 *       piont
- *        const char *              name
- *        int                       flag
- *        void *                    resever data
+ * @param
+ *
+ *
  * @return  ppp_device function piont
  *
  */
-int ppp_sim800_register(struct ppp_sim800 *sim800, const char *dev_name, const char *uart_name, void *user_data)
+int ppp_sim800_register(void)
 {
     struct ppp_device *ppp_device = RT_NULL;
+    struct ppp_sim800 *sim800 = RT_NULL;
 
-    RT_ASSERT(sim800 != RT_NULL);
+    sim800 = rt_malloc(sizeof(struct ppp_sim800));
 
     ppp_device = &(sim800->device);
     ppp_device->ops = &sim800_ops;
 
     LOG_D("ppp sim800 is registering ppp_device");
 
-    return ppp_device_register(ppp_device, dev_name, uart_name, user_data);
+    return ppp_device_register(ppp_device, PPP_DEVICE_NAME, RT_NULL, RT_NULL);
 }
+INIT_ENV_EXPORT(ppp_sim800_register);
