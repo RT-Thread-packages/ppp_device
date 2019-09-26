@@ -223,17 +223,43 @@ static rt_err_t modem_chat_internal(rt_device_t serial, const struct modem_chat_
 /*
  * modem_chat , a function for ppp dailing to network
  *
- * @param struct rt_serial_device           *serial
+ * @param struct ppp_device                 *device
  *        const struct modem_chat_data      *data
  *        rt_size_t                         len
  *
  * @return  0: execute successful
  *
  */
-rt_err_t modem_chat(rt_device_t serial, const struct modem_chat_data *data, rt_size_t len)
+rt_err_t modem_chat(char *uart_name, const struct modem_chat_data *data, rt_size_t len)
 {
-    rt_err_t (*old_rx_ind)(rt_device_t dev, rt_size_t size) = NULL;
-    rt_err_t err;
+    rt_err_t (*old_rx_ind)(rt_device_t dev, rt_size_t size) = RT_NULL;
+
+    rt_err_t err = RT_EOK;
+    rt_device_t serial = RT_NULL;
+    rt_uint16_t oflag = 0;
+
+    serial = rt_device_find(uart_name);
+    if (serial == RT_NULL)
+    {
+        LOG_E("Can't find uart device %s.", uart_name);
+        return -RT_ERROR;
+    }
+
+    oflag = RT_DEVICE_OFLAG_RDWR;
+
+    if (serial->flag & RT_DEVICE_FLAG_DMA_RX)
+        oflag |= RT_DEVICE_FLAG_DMA_RX;
+    else if (serial->flag & RT_DEVICE_FLAG_INT_RX)
+        oflag |= RT_DEVICE_FLAG_INT_RX;
+
+    if (serial->flag & RT_DEVICE_FLAG_DMA_TX)
+        oflag |= RT_DEVICE_FLAG_DMA_TX;
+
+    if (rt_device_open(serial, oflag) != RT_EOK)
+    {
+        LOG_E("(%s) open failed.", uart_name);
+        return -RT_ERROR;
+    }
 
     rt_completion_init(&rx_comp_p);
     old_rx_ind = serial->rx_indicate;

@@ -41,36 +41,9 @@ static const struct modem_chat_data mcd[] =
  */
 static rt_err_t ppp_air720_open(struct ppp_device *device, rt_uint16_t oflag)
 {
-    rt_device_t uart_device = RT_NULL;
-    rt_err_t result = RT_EOK;
-
     RT_ASSERT(device != RT_NULL);
 
-    uart_device = rt_device_find(device->uart_name);
-    if (uart_device == RT_NULL)
-    {
-        LOG_E("Can't find relying device %s.", device->uart_name);
-        return -RT_ERROR;
-    }
-
-    oflag = RT_DEVICE_OFLAG_RDWR;
-
-    if (uart_device->flag & RT_DEVICE_FLAG_DMA_RX)
-        oflag |= RT_DEVICE_FLAG_DMA_RX;
-    else if (uart_device->flag & RT_DEVICE_FLAG_INT_RX)
-        oflag |= RT_DEVICE_FLAG_INT_RX;
-
-    if (uart_device->flag & RT_DEVICE_FLAG_DMA_TX)
-        oflag |= RT_DEVICE_FLAG_DMA_TX;
-
-    result = rt_device_open(uart_device, oflag);
-    if (result != RT_EOK)
-    {
-        LOG_E("(%s) open failed.", device->uart_name);
-        return -RT_ERROR;
-    }
-
-    return modem_chat(uart_device, mcd, sizeof(mcd) / sizeof(mcd[0]));
+    return modem_chat(device->uart_name, mcd, sizeof(mcd) / sizeof(mcd[0]));
 }
 
 /* ppp_air720_ops for ppp_device_ops , a common interface */

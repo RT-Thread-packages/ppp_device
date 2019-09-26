@@ -91,7 +91,7 @@ static uint32_t ppp_data_send(ppp_pcb *pcb, uint8_t *data, uint32_t len, void *p
     rt_device_t recv_device = RT_NULL;
 
     RT_ASSERT(device != RT_NULL);
-    
+
     if(device->ppp_link_status != RT_TRUE)
         goto __exit;
 

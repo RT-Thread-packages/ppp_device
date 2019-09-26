@@ -12,6 +12,7 @@
 #define __PPP_AIR720_H__
 
 #include <ppp_device.h>
+#include <ppp_chat.h>
 
 /* ppp_device base from ppp_device */
 struct ppp_sim800

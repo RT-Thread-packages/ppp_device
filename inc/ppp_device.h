@@ -18,7 +18,6 @@
 #include <netif/ppp/pppapi.h>
 #include <lwip/dns.h>
 #include <lwip/netif.h>
-#include <ppp_chat.h>
 
 #ifndef PPP_DEVICE_NAME
 #define PPP_DEVICE_NAME "pp"
