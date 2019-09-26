@@ -16,7 +16,7 @@
 /* ppp_device base from ppp_device */
 struct ppp_sim800
 {
-    struct ppp_device  device;          /* ppp_device struct in ppp_air720 */
+    struct ppp_device  device;          /* ppp_device struct in ppp_sim800 */
     enum ppp_trans_type type;           /* the type is used to establish a ppp connection */
 };
 

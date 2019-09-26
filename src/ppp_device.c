@@ -610,6 +610,7 @@ int ppp_device_register(struct ppp_device *ppp_device, const char *dev_name, con
 
     /* attention: you can't use ppp_device as a server in you network, unless
      sim of the modem module used supprots getting public IP address. */
+
     /* register ppp device into rt_device frame */
     result = rt_device_register(&ppp_device->parent, dev_name, RT_Device_Class_NetIf);
     if( result == RT_EOK)
@@ -632,7 +633,16 @@ int ppp_device_register(struct ppp_device *ppp_device, const char *dev_name, con
     return result;
 }
 
-/* attach data interface device into ppp device frame */
+/*
+ * attach data interface device into ppp device frame
+ *
+ * @param       char *ppp_device_name
+ *              char *rely_name
+ *              void *user_data
+ * @return  0: execute successful
+ *         -1: error
+ *
+ */
 int ppp_device_attach(char *ppp_device_name, char *rely_name, void *user_data)
 {
     rt_err_t result = RT_EOK;
@@ -660,7 +670,15 @@ int ppp_device_attach(char *ppp_device_name, char *rely_name, void *user_data)
     return RT_EOK;
 }
 
-/* detach data interface device into ppp device frame */
+/*
+ * detach data interface device from ppp device frame
+ *
+ * @param       char *ppp_device_name
+ *
+ * @return  0: execute successful
+ *         -1: error
+ *
+ */
 int ppp_device_detach(const char *ppp_device_name)
 {
     rt_err_t result = RT_EOK;

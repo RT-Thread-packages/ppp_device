@@ -136,6 +136,7 @@ msh />ping www.baidu.com
 * 一般的SIM卡因为只能从运营商网络获取内网地址，所以不能实现服务器相关功能。
 * 目前只支持一个设备通过 PPP 连接网络。
 * 目前只支持使用 UART 方式进行数据传输，后续会添加通过 USB 连接 PPP 的方式。
+* 如果网络环境不好，建议关闭 Enable lin status detect feature 选项，或调整成大一点的时间。
 
 ## 5. 联系方式
 
