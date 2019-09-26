@@ -14,6 +14,12 @@ PPP Device 软件包特点如下：
 
 目前 PPP 功能支持 Luat Air720，China mobile M6312,  SIMCOM SIM800 模块，后续会接入更多 GPRS 模块。
 
+
+
+对 PPP Device 有疑惑，或者对 PPP Device 感兴趣的开发者欢迎入群详细了解。
+
+QQ群：749347156 [<传送门>](https://jq.qq.com/?_wv=1027&k=5KcuPGI)
+
 ### 1.1 框架图
 
 ![](docs/figures/ppp_frame.jpg)
@@ -53,7 +59,7 @@ ppp_device 软件包遵循 Apache-2.0 许可，详见 LICENSE 文件。
     [ ]   Enbale authorize connect feature
     [*]   Enable lin status detect feature
     (1)     Link status detecct timeout
-          Select network operator (china mobile)  --->
+          Select Internet Service Provider (china mobile)  --->
           Select modem type (Luat Air720)  --->
     [*]    Enable ppp device sample
     (uart3) ppp device uart name
@@ -63,7 +69,7 @@ ppp_device 软件包遵循 Apache-2.0 许可，详见 LICENSE 文件。
 - **Enbale authorize connect feature:** 开启身份认证功能
 - **Enable lin status detect feature:** PPP链路连接监控，检测链路连接正常；设置为 0 则不开启链路监控；
 - **Select modem type:** 模块选择
-- **Select network operator:** 网络运营商选择
+- **Select Internet Service Provider:** 网络运营商选择
 - **Enable ppp device sample:**  选择模块后会提示的模块使用示例
 - **ppp device uart name:** 模块使用的串口
 - **Version:** 软件包版本号
@@ -72,19 +78,54 @@ ppp_device 软件包遵循 Apache-2.0 许可，详见 LICENSE 文件。
 
 PPP Device 软件包初始化函数如下所示：
 
-PPP 功能启动函数，该函数自动调用；没有调用停止函数前，不可再次调用。
+**PPP 功能启动函数，该函数自动调用；没有调用停止函数前，不可再次调用**
 
 ```c
-int ppp_start(void);
+int ppp_sample_start(void)
+{
+    rt_device_t device = RT_NULL;
+    device = rt_device_find(PPP_DEVICE_NAME);
+    if(device == RT_NULL)
+    {
+        LOG_E("Can't find device (%s).", PPP_DEVICE_NAME);
+        return -RT_ERROR;
+    }
+    if(ppp_device_attach((struct ppp_device *)device, PPP_CLIENT_NAME, RT_NULL) != RT_EOK)
+    {
+        LOG_E("ppp_device_attach execute failed.");
+        return -RT_ERROR;
+    }
+    return RT_EOK;
+}
+// 自动初始化
+INIT_APP_EXPORT(ppp_sample_start);
+// 命令导出到MSH( ppp_sample_start 变更为ppp_start )
+MSH_CMD_EXPORT_ALIAS(ppp_sample_start, ppp_start, a sample of ppp device  for dailing to network);
 ```
 
 * 模块拨号，模块进入 PPP 模式；
 * 注册 netdev 设备，接入标准网络框架；
 
-PPP 功能停止函数，该函数可以退出 PPP 模式。
+**PPP 功能停止函数，该函数可以退出 PPP 模式**
 
 ```c
-int ppp_stop(void);
+int ppp_sample_stop(void)
+{
+    rt_device_t device = RT_NULL;
+    device = rt_device_find(PPP_DEVICE_NAME);
+    if(device == RT_NULL)
+    {
+        LOG_E("Can't find device (%s).", PPP_DEVICE_NAME);
+        return -RT_ERROR;
+    }
+    if(ppp_device_detach((struct ppp_device *)device) != RT_EOK)
+    {
+        LOG_E("ppp_device_detach execute failed.");
+        return -RT_ERROR;
+    }
+    return RT_EOK;
+}
+MSH_CMD_EXPORT_ALIAS(ppp_sample_stop, ppp_stop, a sample of ppp device for turning off network);
 ```
 
 * 退出 PPP 模式，模块退出拨号模式；
@@ -135,13 +176,15 @@ msh />ping www.baidu.com
 
 * 一般的SIM卡因为只能从运营商网络获取内网地址，所以不能实现服务器相关功能。
 * 目前只支持一个设备通过 PPP 连接网络。
-* 目前只支持使用 UART 方式进行数据传输，后续会添加通过 USB 连接 PPP 的方式。
+* 建议不要打开 RT_DEVICE_FLAG_DMA_TX
 * 如果网络环境不好，建议关闭 Enable lin status detect feature 选项，或调整成大一点的时间。
 
 ## 5. 联系方式
 
 联系人：xiangxistu
 
-QQ群：749347156
-
 Email: liuxianliang@rt-thread.com
+
+## 6. 致谢
+
+感谢网友 [@xfan1024](https://github.com/xfan1024) 的一些贡献及建议，在制作PPP DEVICE 时给与的帮助。提出了很多宝贵的意见来一同完善PPP DEVICE 软件包。
