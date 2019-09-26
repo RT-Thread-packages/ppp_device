@@ -20,7 +20,9 @@
 #include <lwip/netif.h>
 #include <ppp_chat.h>
 
-#define PPP_DAIL_CMD         "ATD*99#"                                    /* common dailing cmd */
+#define PPP_DEVICE_NAME      "pp"
+
+#define PPP_DAIL_CMD         "ATD*99#"                                  /* common dailing cmd */
 #ifdef  PPP_APN_CMCC
 #define PPP_APN_CMD          "AT+CGDCONT=1,\"IP\",\"CMNET\""            /* China Mobile Communication Company */
 #endif
@@ -53,7 +55,7 @@ enum ppp_conn_type
 struct ppp_device
 {
     struct rt_device parent;                    /* join rt_device frame */
-    const char rely_name[RT_NAME_MAX];          /* the name of the low-level driver device */
+    char *rely_name;                            /* the name of the low-level driver device */
     const struct ppp_device_ops *ops;           /* ppp device ops interface */
     enum ppp_conn_type conn_type;               /* using usb or uart */
 
@@ -92,5 +94,7 @@ typedef  rt_err_t (*uart_rx_cb)(rt_device_t dev, rt_size_t size);
 
 /* offer register funciton to user */
 int ppp_device_register(struct ppp_device *ppp_device, const char *dev_name, const char *rely_name, void *user_data);
+int ppp_device_attach(char *ppp_device_name, char *rely_name, void *user_data);
+int ppp_device_detach(const char *ppp_device_name);
 
 #endif /* __PPP_DEVICE_H__ */

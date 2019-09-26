@@ -24,6 +24,7 @@
 #define PPP_DATA_BEGIN_END       0x7e
 #define DATA_EFFECTIVE_FLAG      0x00
 #define RECON_ERR_COUNTS         0x02
+#define PPP_RECONNECT_TIME       2500
 
 #if RT_LWIP_TCPTHREAD_STACKSIZE < 2048
 #error "tcpip stack is too small, should greater than 2048."
@@ -93,7 +94,7 @@ static uint32_t ppp_data_send(ppp_pcb *pcb, uint8_t *data, uint32_t len, void *p
 
     /* recv_device is rt_device , find recv_device through device name */
     recv_device = rt_device_find(device->rely_name);
-    if (recv_device == RT_NULL)
+    if (recv_device == RT_NULL && device->ppp_link_status == RT_TRUE)
     {
         LOG_E("Can find device (%s), ppp send data execute failed.",device->rely_name);
         result = -RT_ERROR;
@@ -150,7 +151,6 @@ static void ppp_status_changed(ppp_pcb *pcb, int err_code, void *ctx)
         LOG_E("Unable to allocate resources.");
         break;
     case PPPERR_USER:
-        LOG_E("free the ppp control block , because user control.");
         pppapi_free(pcb);           /* Free the PPP control block */
         break;
     case PPPERR_CONNECT:            /* Connection lost */
@@ -236,7 +236,7 @@ static int ppp_recv_entry(struct ppp_device *device)
     while (1)
     {
         /* ppp link is closed, the recieve thread also need to exit */
-        if (device->ppp_link_status != 1)
+        if (device->ppp_link_status != RT_TRUE)
         {
             break;
         }
@@ -377,17 +377,16 @@ __exit:
 static rt_err_t ppp_device_init(struct rt_device *device)
 {
     RT_ASSERT(device != RT_NULL);
-    rt_err_t result = RT_EOK;
 
     struct ppp_device *ppp_device = (struct ppp_device *)device;
     RT_ASSERT(ppp_device != RT_NULL);
 
-    result = (ppp_device->ops->init && ppp_device->ops->init(ppp_device));
-    if(result != RT_EOK)
+    if(ppp_device->ops->init && ppp_device->ops->init(ppp_device) != RT_EOK)
     {
         LOG_E("ppp_device->ops->init failed.");
+        return -RT_ERROR;
     }
-    return result;
+    return RT_EOK;
 }
 
 /*
@@ -408,7 +407,7 @@ static rt_err_t ppp_device_open(struct rt_device *device, rt_uint16_t oflag)
     RT_ASSERT(ppp_device != RT_NULL);
     static rt_device_t serial;
 
-    ppp_device->ppp_link_status = 1;
+    ppp_device->ppp_link_status = RT_TRUE;
     /* Creat a thread to creat ppp recieve function */
     result = ppp_recv_entry_creat(ppp_device);
     if (result != RT_EOK)
@@ -420,8 +419,7 @@ static rt_err_t ppp_device_open(struct rt_device *device, rt_uint16_t oflag)
     LOG_D("Creat a thread to creat ppp recieve function successful.");
 
     /* we can do nothing */
-    result = (ppp_device->ops->open && ppp_device->ops->open(ppp_device, oflag));
-    if (result != RT_EOK)
+    if (ppp_device->ops->open && ppp_device->ops->open(ppp_device, oflag) != RT_EOK)
     {
         LOG_E("ppp device open failed.");
         result = -RT_ERROR;
@@ -512,7 +510,6 @@ static rt_err_t ppp_device_close(struct rt_device *device)
 {
     RT_ASSERT(device != RT_NULL);
 	extern void ppp_netdev_del(struct netif *ppp_netif);
-    rt_err_t result = RT_EOK;
 
     struct ppp_device *ppp_device = (struct ppp_device *)device;
     RT_ASSERT(ppp_device != RT_NULL);
@@ -520,19 +517,20 @@ static rt_err_t ppp_device_close(struct rt_device *device)
     /* use pppapi_close to shutdown ppp link status */
     pppapi_close(ppp_device->pcb, 0);
 
-    ppp_device->ppp_link_status = 0;
+    ppp_device->ppp_link_status = RT_FALSE;
     rt_sem_release(ppp_device->rx_notice);
 
     /* delete netdev from netdev frame */
     ppp_netdev_del(&ppp_device->pppif);
     LOG_D("ppp netdev has been detach.");
 
-    result = (ppp_device->ops->close && ppp_device->ops->close(ppp_device));
-    if(result != RT_EOK)
+    if (ppp_device->ops->close && ppp_device->ops->close(ppp_device) != RT_EOK)
     {
         LOG_E("ppp_device->ops->close failed.");
+        return -RT_ERROR;
     }
     /* cut down piont to piont at data link layer */
+    LOG_I("ppp_device has been closed.");
     return RT_EOK;
 }
 
@@ -586,11 +584,10 @@ const struct rt_device_ops ppp_device_ops =
  */
 int ppp_device_register(struct ppp_device *ppp_device, const char *dev_name, const char *rely_name, void *user_data)
 {
-    rt_err_t result = RT_EOK;
-
     RT_ASSERT(ppp_device != RT_NULL);
-
+    rt_err_t result = RT_EOK;
     struct rt_device *device = RT_NULL;
+
     device = &(ppp_device->parent);
 
 #ifdef RT_USING_DEVICE_OPS
@@ -603,9 +600,6 @@ int ppp_device_register(struct ppp_device *ppp_device, const char *dev_name, con
     device->write = RT_NULL;
     device->control = ppp_device_control;
 #endif
-    device->user_data = user_data;
-
-    rt_strncpy((char *)ppp_device->rely_name, rely_name, rt_strlen(rely_name));
 
     /* now we supprot only one device */
     if (_g_ppp_device != RT_NULL)
@@ -627,14 +621,69 @@ int ppp_device_register(struct ppp_device *ppp_device, const char *dev_name, con
     /* when ppp device has register rt_device frame, start up it */
     do
     {
-        result = (device->init && device->init((rt_device_t)ppp_device));
-        if (result != RT_EOK)
+        if (device->init && device->init((rt_device_t)ppp_device) != RT_EOK)
         {
-            LOG_E("ppp device init failed.try it in %ds", 2500/100);
-            rt_thread_mdelay(2500);
+            LOG_E("ppp device init failed.try it in %ds", PPP_RECONNECT_TIME / 100);
+            rt_thread_mdelay(PPP_RECONNECT_TIME);
             result = -RT_ERROR;
         }
     } while (result != RT_EOK);
 
     return result;
+}
+
+/* attach data interface device into ppp device frame */
+int ppp_device_attach(char *ppp_device_name, char *rely_name, void *user_data)
+{
+    rt_err_t result = RT_EOK;
+    rt_device_t device = RT_NULL;
+    struct ppp_device *ppp_device = RT_NULL;
+
+    device = rt_device_find(ppp_device_name);
+    if(device == RT_NULL)
+    {
+        LOG_E("ppp_device_attach failed. Can't find (%s)", ppp_device_name);
+        return -RT_ERROR;
+    }
+    ppp_device = (struct ppp_device *)device;
+
+    ppp_device->rely_name = rely_name;
+    ppp_device->user_data = user_data;
+
+    result = rt_device_open(device, RT_TRUE);
+    if(result != RT_EOK)
+    {
+        LOG_E("ppp_device_attach failed. Can't open device(%d).", result);
+        return result;
+    }
+
+    return RT_EOK;
+}
+
+/* detach data interface device into ppp device frame */
+int ppp_device_detach(const char *ppp_device_name)
+{
+    rt_err_t result = RT_EOK;
+    rt_device_t device = RT_NULL;
+    struct ppp_device *ppp_device = RT_NULL;
+
+    device = rt_device_find(ppp_device_name);
+    if (device == RT_NULL)
+    {
+        LOG_E("ppp_device_detach failed. Can't find (%s)", ppp_device_name);
+        return -RT_ERROR;
+    }
+    ppp_device = (struct ppp_device *)device;
+
+    result = rt_device_close(device);
+    if (result != RT_EOK)
+    {
+        LOG_E("ppp_device_detach failed. Can't open device(%d).", result);
+        return result;
+    }
+
+    ppp_device->rely_name = RT_NULL;
+    ppp_device->user_data = RT_NULL;
+
+    return RT_EOK;
 }
