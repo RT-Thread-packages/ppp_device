@@ -298,6 +298,7 @@ static int ppp_recv_entry(struct ppp_device *device)
 __exit:
 
     rt_free(device->recv_line_buf);
+    rt_free(device->rx_notice);
 
     return result;
 }
@@ -314,15 +315,6 @@ __exit:
 static int ppp_recv_entry_creat(struct ppp_device *device)
 {
     rt_int8_t result = RT_EOK;
-
-    /* protect public resoure */
-    device->lock = rt_mutex_create("mutex_ppp_recv", RT_IPC_FLAG_FIFO);
-    if (device->lock == RT_NULL)
-    {
-        LOG_E("PPP device initialize failed! ppp_device_recv_lock create failed!");
-        result = -RT_ENOMEM;
-        goto __exit;
-    }
 
     /* when recieve rx_notice, come to recieve a data from uart */
     device->rx_notice = rt_sem_create("sem_ppp_recv", 0, RT_IPC_FLAG_FIFO);
@@ -348,23 +340,22 @@ static int ppp_recv_entry_creat(struct ppp_device *device)
     }
 
     /* if you create a thread, never forget to start it */
-    rt_thread_startup(device->recv_tid);
+    result = rt_thread_startup(device->recv_tid);
+    if(result != RT_EOK)
+    {
+        goto __exit;
+    }
+
+    return result;
 
 __exit:
-    if (result != RT_EOK)
+
+    if (device->rx_notice)
     {
-        if (device->lock)
-        {
-            rt_mutex_delete(device->lock);
-        }
-
-        if (device->rx_notice)
-        {
-            rt_sem_delete(device->rx_notice);
-        }
-
-        rt_memset(device, 0x00, sizeof(struct ppp_device));
+        rt_sem_delete(device->rx_notice);
     }
+
+    rt_memset(device, 0x00, sizeof(struct ppp_device));
     return result;
 }
 
@@ -520,7 +511,6 @@ static rt_err_t ppp_device_close(struct rt_device *device)
     pppapi_close(ppp_device->pcb, 0);
 
     ppp_device->ppp_link_status = RT_FALSE;
-    rt_sem_release(ppp_device->rx_notice);
 
     /* delete netdev from netdev frame */
     ppp_netdev_del(&ppp_device->pppif);
@@ -590,6 +580,7 @@ int ppp_device_register(struct ppp_device *ppp_device, const char *dev_name, con
     struct rt_device *device = RT_NULL;
 
     device = &(ppp_device->parent);
+    device->type = RT_Device_Class_NetIf;
 
 #ifdef RT_USING_DEVICE_OPS
     device->ops = &ppp_device_ops;
@@ -613,7 +604,7 @@ int ppp_device_register(struct ppp_device *ppp_device, const char *dev_name, con
      sim of the modem module used supprots getting public IP address. */
 
     /* register ppp device into rt_device frame */
-    result = rt_device_register(&ppp_device->parent, dev_name, RT_Device_Class_NetIf);
+    result = rt_device_register(&ppp_device->parent, dev_name, RT_DEVICE_OFLAG_RDWR);
     if( result == RT_EOK)
     {
         _g_ppp_device = ppp_device;
