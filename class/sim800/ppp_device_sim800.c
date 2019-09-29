@@ -43,8 +43,18 @@ static const struct modem_chat_data mcd[] =
 static rt_err_t ppp_sim800_open(struct ppp_device *device, rt_uint16_t oflag)
 {
     RT_ASSERT(device != RT_NULL);
+    return RT_EOK;
+}
 
-    return modem_chat(device->uart_name, mcd, sizeof(mcd) / sizeof(mcd[0]));
+static rt_err_t ppp_sim800_control(struct ppp_device *device, int cmd, void *args)
+{
+    switch (cmd)
+    {
+    case PPP_CTL_PREPARE:
+        return modem_chat(device->uart_name, mcd, sizeof(mcd) / sizeof(mcd[0]));
+    default:
+        return -RT_ENOSYS;
+    }
 }
 
 /* ppp_sim800_ops for ppp_device_ops , a common interface */
@@ -53,7 +63,7 @@ static struct ppp_device_ops sim800_ops =
     RT_NULL,
     ppp_sim800_open,
     RT_NULL,
-    RT_NULL,
+    ppp_sim800_control,
 };
 
 /*

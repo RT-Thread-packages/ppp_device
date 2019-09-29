@@ -36,6 +36,9 @@
 #define PPP_CTL_GET_CSQ      1
 #define PPP_CTL_GET_IEMI     2
 #define PPP_CTL_GET_TYPE     3
+#define PPP_CTL_PREPARE      10
+
+#define PPP_FRAME_MAX       1550
 
 enum ppp_trans_type
 {
@@ -56,6 +59,7 @@ enum ppp_conn_type
 struct ppp_device
 {
     struct rt_device parent;                    /* join rt_device frame */
+    rt_device_t uart;
     char *uart_name;                            /* the name of the low-level driver device */
     const struct ppp_device_ops *ops;           /* ppp device ops interface */
     enum ppp_conn_type conn_type;               /* using usb or uart */
@@ -63,15 +67,13 @@ struct ppp_device
     ppp_pcb *pcb;                               /* ppp protocol control block */
     struct netif pppif;
 
-    char *recv_line_buf;                        /* the current received one line data buffer */
-    rt_size_t recv_line_len;                    /* The length of the currently received one line data */
-    rt_size_t recv_bufsz;                       /* The maximum supported receive data length */
+    rt_size_t  rxpos;
+    rt_uint8_t rxbuf[PPP_FRAME_MAX];
+    rt_uint8_t state;
 
-    rt_sem_t rx_notice;                         /* attention uart to recieve data delivery to tcpip */
-    rt_mutex_t lock;                            /* protect uart */
+    struct rt_event event;
 
     rt_thread_t recv_tid;                       /* recieve thread point */
-    rt_bool_t ppp_link_status;                  /* if ppp link is shut down, close recieve thread and shut down */
     void *user_data;                            /* reserve */
 };
 

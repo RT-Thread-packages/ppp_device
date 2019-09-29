@@ -18,6 +18,7 @@ struct ppp_m6312
 {
     struct ppp_device  device;          /* ppp_device struct in ppp_m6312 */
     enum ppp_trans_type type;           /* the type is used to establish a ppp connection */
+    rt_base_t power_pin;
 };
 
 extern int ppp_m6312_register(void);

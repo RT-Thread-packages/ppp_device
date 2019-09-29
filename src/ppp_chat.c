@@ -268,12 +268,9 @@ rt_err_t modem_chat(char *uart_name, const struct modem_chat_data *data, rt_size
     LOG_I("(%s) has control by modem_chat.", serial->parent.name);
     err = modem_chat_internal(serial, data, len);
     if (err != RT_EOK)
-    {
         LOG_E("chat failed");
-        goto __exit;
-    }
 
-    serial->rx_indicate = old_rx_ind;
 __exit:
+    serial->rx_indicate = old_rx_ind;
     return err;
 }

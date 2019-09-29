@@ -21,10 +21,25 @@
 
 #include <rtdbg.h>
 
+enum {
+    PPP_STATE_PREPARE,
+    PPP_STATE_WAIT_HEAD,
+    PPP_STATE_WAIT_ADDR,
+    PPP_STATE_RECV_DATA,
+};
+
 #define PPP_DATA_BEGIN_END       0x7e
+#define PPP_DATA_ADDR            0xff
 #define DATA_EFFECTIVE_FLAG      0x00
 #define RECON_ERR_COUNTS         0x02
 #define PPP_RECONNECT_TIME       2500
+#define PPP_RECV_READ_MAX        32
+
+
+#define PPP_EVENT_RX_NOTIFY 1   // serial incoming a byte
+#define PPP_EVENT_LOST      2   // PPP connection is lost
+#define PPP_EVENT_CLOSE_REQ 4   // user want close ppp_device
+#define PPP_EVENT_CLOSED    8   // ppp_recv thread will send CLOSED event when ppp_recv thread is safe exit
 
 #if RT_LWIP_TCPTHREAD_STACKSIZE < 2048
 #error "tcpip stack is too small, should greater than 2048."
@@ -48,25 +63,8 @@ static rt_err_t ppp_device_rx_ind(rt_device_t dev, rt_size_t size)
     struct ppp_device *ppp_dev = _g_ppp_device;
 
     /* when recieve data from uart , release semphone to wake up recieve thread */
-    rt_sem_release(ppp_dev->rx_notice);
+    rt_event_send(&ppp_dev->event, PPP_EVENT_RX_NOTIFY);
 
-    return RT_EOK;
-}
-
-static rt_err_t ppp_device_getchar(rt_device_t recv_dev,rt_sem_t rx_notice, char *ch, rt_int32_t timeout)
-{
-    rt_err_t result = RT_EOK;
-
-    while (rt_device_read(recv_dev, 0, ch, 1) == 0)
-    {
-        rt_sem_control(rx_notice, RT_IPC_CMD_RESET, RT_NULL);
-
-        result = rt_sem_take(rx_notice, rt_tick_from_millisecond(timeout));
-        if (result != RT_EOK)
-        {
-            return result;
-        }
-    }
     return RT_EOK;
 }
 
@@ -86,33 +84,13 @@ static uint32_t ppp_data_send(ppp_pcb *pcb, uint8_t *data, uint32_t len, void *p
     RT_ASSERT(pcb != RT_NULL);
     RT_ASSERT(ppp_device != RT_NULL);
 
-    int result = RT_EOK;
     struct ppp_device *device = (struct ppp_device *)ppp_device;
-    rt_device_t recv_device = RT_NULL;
 
-    RT_ASSERT(device != RT_NULL);
-
-    if(device->ppp_link_status != RT_TRUE)
-        goto __exit;
-
-    /* recv_device is rt_device , find recv_device through device name */
-    recv_device = rt_device_find(device->uart_name);
-    if (recv_device == RT_NULL)
-    {
-        LOG_E("Can find device (%s), ppp send data execute failed.",device->uart_name);
-        result = -RT_ERROR;
-        goto __exit;
-    }
+    if (device->state == PPP_STATE_PREPARE)
+        return 0;
 
     /* the return data is the actually written size on successful */
-    len = rt_device_write(recv_device,0,data,len);
-
-    /* must be return data length , or will get warning like "pppos_write[0]: output failed len=24" */
-    return len;
-
-__exit:
-
-    return result;
+    return rt_device_write(device->uart, 0, data, len);
 }
 
 /*
@@ -129,16 +107,10 @@ static void ppp_status_changed(ppp_pcb *pcb, int err_code, void *ctx)
 {
     struct ppp_device *pppdev = (struct ppp_device *)ctx;
     struct netif *pppif = ppp_netif(pcb);
-    static uint8_t re_count = 0;
     switch (err_code)
     {
     case PPPERR_NONE:                /* Connected */
         pppdev->pppif.mtu = pppif->mtu;
-        if (pppdev->ppp_link_status == 1)
-        {
-            ppp_netdev_add(&pppdev->pppif);
-        }
-        re_count = 0;
         LOG_I("ppp connect successful.");
         break;
     case PPPERR_PARAM:
@@ -154,12 +126,10 @@ static void ppp_status_changed(ppp_pcb *pcb, int err_code, void *ctx)
         LOG_E("Unable to allocate resources.");
         break;
     case PPPERR_USER:
-        pppapi_free(pcb);           /* Free the PPP control block */
+        LOG_D("User interrupt");
         break;
     case PPPERR_CONNECT:            /* Connection lost */
         LOG_E("ppp connect lost.");
-        pppapi_connect(pcb, 0);
-        LOG_I("Reconnection.");
         break;
     case PPPERR_AUTHFAIL:
         LOG_E("Failed authentication challenge.");
@@ -169,20 +139,6 @@ static void ppp_status_changed(ppp_pcb *pcb, int err_code, void *ctx)
         break;
     case PPPERR_PEERDEAD:
         LOG_E("Connection timeout.");
-        pppapi_connect(pcb, 0);
-        if (re_count++ == RECON_ERR_COUNTS)
-        {
-            re_count = 0;
-            pppdev->ppp_link_status = 0;
-            if (!(pppdev->parent.close && pppdev->parent.close((rt_device_t)pppdev)))
-            {
-                LOG_E("ppp_device close failed.");
-            }
-        }
-        else
-        {
-             LOG_I("Reconnection.");
-        }
         break;
     case PPPERR_IDLETIMEOUT:
         LOG_E("Idle Timeout.");
@@ -197,6 +153,79 @@ static void ppp_status_changed(ppp_pcb *pcb, int err_code, void *ctx)
         LOG_E("Unknown error code %d.", err_code);
         break;
     }
+    if (err_code != PPPERR_NONE)
+        rt_event_send(&pppdev->event, PPP_EVENT_LOST);
+}
+
+static inline void ppp_savebyte(struct ppp_device *device, rt_uint8_t dat)
+{
+    RT_ASSERT(device->rxpos < sizeof(device->rxbuf));
+    device->rxbuf[device->rxpos++] = dat;
+}
+
+static inline void ppp_start_receive_frame(struct ppp_device *device)
+{
+    device->rxpos = 0;
+    device->state = PPP_STATE_WAIT_HEAD;
+}
+
+static void ppp_recv_processdata(struct ppp_device *device, const rt_uint8_t *buf, rt_size_t len)
+{
+    rt_uint8_t dat;
+
+    // LOG_D("%s: %u bytes", __func__, (unsigned)len);
+    while (len--)
+    {
+        dat = *buf++;
+process_dat:
+        ppp_savebyte(device, dat);
+        switch (device->state)
+        {
+        case PPP_STATE_WAIT_HEAD:
+            // LOG_D("want PPP_DATA_BEGIN");
+            if (dat == PPP_DATA_BEGIN_END)
+            {
+                device->state++;
+                // LOG_I("got PPP_DATA_BEGIN");
+            }
+            else
+            {
+                ppp_start_receive_frame(device);
+            }
+            break;
+        case PPP_STATE_WAIT_ADDR:
+            // LOG_D("want PPP_DATA_ADDR");
+            if (dat == PPP_DATA_ADDR)
+            {
+                device->state++;
+                // LOG_D("GOT PPP_DATA_ADDR");
+            }
+            else
+            {
+                ppp_start_receive_frame(device);
+                goto process_dat;
+            }
+
+            break;
+        case PPP_STATE_RECV_DATA:
+            if (dat == PPP_DATA_BEGIN_END)
+            {
+                // LOG_D("GOT FRAME: %u bytes", (unsigned)device->rxpos);
+                rt_enter_critical();
+                pppos_input_tcpip(device->pcb, (u8_t *)device->rxbuf, device->rxpos);
+                rt_exit_critical();
+                ppp_start_receive_frame(device);
+            }
+            break;
+        default:
+            LOG_E("BUG: unexpect state: %u", (unsigned int)device->state);
+        }
+        if (device->rxpos == sizeof(device->rxbuf))
+        {
+            LOG_W("receive ppp frame is lagger than %u", (unsigned int)sizeof(device->rxbuf));
+            ppp_start_receive_frame(device);
+        }
+    }
 }
 
 /*
@@ -210,97 +239,65 @@ static void ppp_status_changed(ppp_pcb *pcb, int err_code, void *ctx)
  */
 static int ppp_recv_entry(struct ppp_device *device)
 {
-    RT_ASSERT(device != RT_NULL);
+    const rt_uint32_t interested_event = PPP_EVENT_RX_NOTIFY | PPP_EVENT_LOST | PPP_EVENT_CLOSE_REQ;
+    rt_uint32_t event;
+    rt_size_t len;
+    rt_uint8_t buffer[PPP_RECV_READ_MAX];
+    rt_bool_t closing = RT_FALSE;
 
-    char ch = 0, old_ch = 0;
-    int result = RT_EOK;
-    static char thrans_flag = 0;
-    rt_device_t recv_dev = RT_NULL;
-    device->recv_line_len = 0;
-
-    /* alloc buff to store uart data */
-    device->recv_line_buf = (char *)rt_calloc(1, 1550);
-    if (device->recv_line_buf == RT_NULL)
-    {
-        LOG_E("ppp_recv_line_buff alloc memory failed! No memory for receive buffer.");
-        result = -RT_ENOMEM;
-        goto __exit;
-    }
-
-    /* use name to find rt_devcie */
-    recv_dev = rt_device_find(device->uart_name);
-    if (recv_dev == RT_NULL)
-    {
-        LOG_E("Can find device (%s), ppp recv entry creat failed.",device->uart_name);
-        result = -RT_ERROR;
-        goto __exit;
-    }
+    rt_event_control(&device->event, RT_IPC_CMD_RESET, NULL);
+    device->state = PPP_STATE_PREPARE;
 
     while (1)
     {
-        /* ppp link is closed, the recieve thread also need to exit */
-        if (device->ppp_link_status != RT_TRUE)
+        if (device->state == PPP_STATE_PREPARE)
         {
-            break;
-        }
-
-        /* waitting for get data, more secure way to deal information */
-        ppp_device_getchar(recv_dev, device->rx_notice, &ch, RT_WAITING_FOREVER);
-
-        /* begin to recieve data from uart */
-        if (thrans_flag == PPP_DATA_START)
-        {
-            /* if recieve 0x7e twice */
-            if (ch == PPP_DATA_BEGIN_END && old_ch == PPP_DATA_BEGIN_END)
+            if (device->ops->control(device, PPP_CTL_PREPARE, NULL) == RT_EOK)
             {
-                /* choice the least 0x7e as frame head */
-                device->recv_line_buf[0] = ch;
-                device->recv_line_len = 1;
-
-                old_ch = ch;
-            }
-            else if (ch == PPP_DATA_BEGIN_END && old_ch == DATA_EFFECTIVE_FLAG)
-            {
-                thrans_flag = PPP_DATA_END;
-                device->recv_line_buf[device->recv_line_len] = ch;
+                ppp_start_receive_frame(device);
+                pppapi_connect(device->pcb, 0);
             }
             else
             {
-                old_ch = DATA_EFFECTIVE_FLAG;
-                device->recv_line_buf[device->recv_line_len] = ch;
-                device->recv_line_len++;
+                LOG_E("%s prepare fail, try again later", device->parent.parent.name);
+                rt_thread_mdelay(10*1000);
             }
-
-            /* when a frame is end, put data into tcpip */
-            if (thrans_flag == PPP_DATA_END)
-            {
-                rt_enter_critical();
-                pppos_input_tcpip(device->pcb, (u8_t *)device->recv_line_buf, device->recv_line_len + 1);
-                rt_exit_critical();
-
-                thrans_flag = PPP_DATA_VERIFY;
-                device->recv_line_len = 0;
-            }
+            continue;
         }
-        else
+
+        rt_event_recv(&device->event, interested_event, RT_EVENT_FLAG_OR | RT_EVENT_FLAG_CLEAR, RT_WAITING_FOREVER, &event);
+
+        if (event & PPP_EVENT_RX_NOTIFY)
         {
-            /* if recieve 0x7e, begin to recieve data */
-            if (ch == PPP_DATA_BEGIN_END)
+            do
             {
-                thrans_flag = PPP_DATA_START;
-                old_ch = ch;
-                device->recv_line_buf[0] = ch;
-                device->recv_line_len = 1;
+                len = rt_device_read(device->uart, 0, buffer, PPP_RECV_READ_MAX);
+                if (len)
+                    ppp_recv_processdata(device, buffer, len);
+            } while (len);
+        }
+
+        if (event & PPP_EVENT_CLOSE_REQ)
+        {
+            LOG_D("user request close ppp");
+            closing = RT_TRUE;
+            pppapi_close(device->pcb, 0);
+        }
+
+        if (event & PPP_EVENT_LOST)
+        {
+            if (closing)
+            {
+                LOG_W("ppp closing success");
+                rt_event_send(&device->event, PPP_EVENT_CLOSED);
+                break;
             }
+            LOG_W("ppp lost, try reconnect");
+            device->state = PPP_STATE_PREPARE;
         }
     }
 
-__exit:
-
-    rt_free(device->recv_line_buf);
-    rt_free(device->rx_notice);
-
-    return result;
+    return RT_EOK;
 }
 
 /*
@@ -316,20 +313,11 @@ static int ppp_recv_entry_creat(struct ppp_device *device)
 {
     rt_int8_t result = RT_EOK;
 
-    /* when recieve rx_notice, come to recieve a data from uart */
-    device->rx_notice = rt_sem_create("sem_ppp_recv", 0, RT_IPC_FLAG_FIFO);
-    if (device->rx_notice == RT_NULL)
-    {
-        LOG_E("PPP device initialize failed! ppp_device_recv_notice create failed!");
-        result = -RT_ENOMEM;
-        goto __exit;
-    }
-
     /* dynamic creat a recv_thread */
     device->recv_tid = rt_thread_create("ppp_recv",
                                         (void (*)(void *parameter))ppp_recv_entry,
                                         device,
-                                        512,
+                                        768,
                                         8,
                                         20);
     if (device->recv_tid == RT_NULL)
@@ -342,19 +330,11 @@ static int ppp_recv_entry_creat(struct ppp_device *device)
     /* if you create a thread, never forget to start it */
     result = rt_thread_startup(device->recv_tid);
     if(result != RT_EOK)
-    {
         goto __exit;
-    }
 
     return result;
 
 __exit:
-
-    if (device->rx_notice)
-    {
-        rt_sem_delete(device->rx_notice);
-    }
-
     rt_memset(device, 0x00, sizeof(struct ppp_device));
     return result;
 }
@@ -398,19 +378,8 @@ static rt_err_t ppp_device_open(struct rt_device *device, rt_uint16_t oflag)
     RT_ASSERT(device != RT_NULL);
 
     struct ppp_device *ppp_device = (struct ppp_device *)device;
-    static rt_device_t serial = RT_NULL;
 
-    ppp_device->ppp_link_status = RT_TRUE;
-    /* Creat a thread to creat ppp recieve function */
-    result = ppp_recv_entry_creat(ppp_device);
-    if (result != RT_EOK)
-    {
-        LOG_E("Creat a thread to creat ppp recieve function failed.");
-        result = -RT_ERROR;
-        goto __exit;
-    }
-    LOG_D("Creat a thread to creat ppp recieve function successful.");
-
+    rt_event_init(&ppp_device->event, "pppev", RT_IPC_FLAG_FIFO);
     /* we can do nothing */
     if (ppp_device->ops->open && ppp_device->ops->open(ppp_device, oflag) != RT_EOK)
     {
@@ -420,13 +389,13 @@ static rt_err_t ppp_device_open(struct rt_device *device, rt_uint16_t oflag)
     }
 
     /* uart conversion into ppp device , find and open command device */
-    serial = rt_device_find(ppp_device->uart_name);
-    if (serial  != RT_NULL)
+    ppp_device->uart = rt_device_find(ppp_device->uart_name);
+    if (ppp_device->uart  != RT_NULL)
     {
-        RT_ASSERT(serial->type == RT_Device_Class_Char);
+        RT_ASSERT(ppp_device->uart->type == RT_Device_Class_Char);
 
         /* uart transfer into tcpip protocol stack */
-        rt_device_set_rx_indicate(serial, ppp_device_rx_ind);
+        rt_device_set_rx_indicate(ppp_device->uart, ppp_device_rx_ind);
         LOG_I("(%s) is used by ppp_device.", ppp_device->uart_name);
     }
     else
@@ -445,6 +414,7 @@ static rt_err_t ppp_device_open(struct rt_device *device, rt_uint16_t oflag)
         goto __exit;
     }
     LOG_D("pppapi_pppos_create has created a protocol control block.");
+    ppp_netdev_add(&ppp_device->pppif);
 
     /* set netif name */
     ppp_device->pppif.name[0] = ppp_device->parent.parent.name[0];
@@ -476,15 +446,15 @@ static rt_err_t ppp_device_open(struct rt_device *device, rt_uint16_t oflag)
     LOG_D("ppp_set_auth has passed verification.");
  #endif /* PPP_AUTHORIZE */
 
-    /* ppp connect */
-    result = pppapi_connect(ppp_device->pcb, 0);
+    /* Creat a thread to creat ppp recieve function */
+    result = ppp_recv_entry_creat(ppp_device);
     if (result != RT_EOK)
     {
-        LOG_E("pppapi_connect execute failed.");
+        LOG_E("Creat a thread to creat ppp recieve function failed.");
         result = -RT_ERROR;
         goto __exit;
     }
-    LOG_D("pppapi_connect execute successful, waitting connect.");
+    LOG_D("Creat a thread to creat ppp recieve function successful.");
 
 __exit:
 
@@ -501,20 +471,20 @@ __exit:
  */
 static rt_err_t ppp_device_close(struct rt_device *device)
 {
+    rt_uint32_t event;
     RT_ASSERT(device != RT_NULL);
 	extern void ppp_netdev_del(struct netif *ppp_netif);
 
     struct ppp_device *ppp_device = (struct ppp_device *)device;
     RT_ASSERT(ppp_device != RT_NULL);
 
-    /* use pppapi_close to shutdown ppp link status */
-    pppapi_close(ppp_device->pcb, 0);
+    rt_event_send(&ppp_device->event, PPP_EVENT_CLOSE_REQ);
+    rt_event_recv(&ppp_device->event, PPP_EVENT_CLOSED, RT_EVENT_FLAG_OR | RT_EVENT_FLAG_CLEAR, RT_WAITING_FOREVER, &event);
 
-    ppp_device->ppp_link_status = RT_FALSE;
-
-    /* delete netdev from netdev frame */
     ppp_netdev_del(&ppp_device->pppif);
+    ppp_free(ppp_device->pcb);
     LOG_D("ppp netdev has been detach.");
+    rt_event_detach(&ppp_device->event);
 
     if (ppp_device->ops->close && ppp_device->ops->close(ppp_device) != RT_EOK)
     {
