@@ -55,11 +55,11 @@ static rt_err_t m6312_prepare(struct ppp_m6312 *m6312)
     else
     {
         rt_err_t err;
-        err = modem_chat(m6312->device.uart_name, rst_mcd, sizeof(rst_mcd) / sizeof(rst_mcd[0]));
+        err = modem_chat(m6312->device.uart, rst_mcd, sizeof(rst_mcd) / sizeof(rst_mcd[0]));
         if (err)
             return err;
     }
-    return modem_chat(m6312->device.uart_name, mcd, sizeof(mcd) / sizeof(mcd[0]));
+    return modem_chat(m6312->device.uart, mcd, sizeof(mcd) / sizeof(mcd[0]));
 }
 
 /*

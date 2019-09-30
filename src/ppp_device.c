@@ -173,7 +173,6 @@ static void ppp_recv_processdata(struct ppp_device *device, const rt_uint8_t *bu
 {
     rt_uint8_t dat;
 
-    // LOG_D("%s: %u bytes", __func__, (unsigned)len);
     while (len--)
     {
         dat = *buf++;
@@ -182,11 +181,9 @@ process_dat:
         switch (device->state)
         {
         case PPP_STATE_WAIT_HEAD:
-            // LOG_D("want PPP_DATA_BEGIN");
             if (dat == PPP_DATA_BEGIN_END)
             {
-                device->state++;
-                // LOG_I("got PPP_DATA_BEGIN");
+                device->state = PPP_STATE_WAIT_ADDR;
             }
             else
             {
@@ -194,11 +191,9 @@ process_dat:
             }
             break;
         case PPP_STATE_WAIT_ADDR:
-            // LOG_D("want PPP_DATA_ADDR");
             if (dat == PPP_DATA_ADDR)
             {
-                device->state++;
-                // LOG_D("GOT PPP_DATA_ADDR");
+                device->state = PPP_STATE_RECV_DATA;
             }
             else
             {
@@ -210,7 +205,6 @@ process_dat:
         case PPP_STATE_RECV_DATA:
             if (dat == PPP_DATA_BEGIN_END)
             {
-                // LOG_D("GOT FRAME: %u bytes", (unsigned)device->rxpos);
                 rt_enter_critical();
                 pppos_input_tcpip(device->pcb, (u8_t *)device->rxbuf, device->rxpos);
                 rt_exit_critical();
@@ -245,14 +239,14 @@ static int ppp_recv_entry(struct ppp_device *device)
     rt_uint8_t buffer[PPP_RECV_READ_MAX];
     rt_bool_t closing = RT_FALSE;
 
-    rt_event_control(&device->event, RT_IPC_CMD_RESET, NULL);
+    rt_event_control(&device->event, RT_IPC_CMD_RESET, RT_NULL);
     device->state = PPP_STATE_PREPARE;
 
     while (1)
     {
         if (device->state == PPP_STATE_PREPARE)
         {
-            if (device->ops->control(device, PPP_CTL_PREPARE, NULL) == RT_EOK)
+            if (device->ops->control(device, PPP_CTL_PREPARE, RT_NULL) == RT_EOK)
             {
                 ppp_start_receive_frame(device);
                 pppapi_connect(device->pcb, 0);
@@ -375,9 +369,27 @@ static rt_err_t ppp_device_init(struct rt_device *device)
 static rt_err_t ppp_device_open(struct rt_device *device, rt_uint16_t oflag)
 {
     int result = RT_EOK;
+    rt_uint16_t uart_oflag;
     RT_ASSERT(device != RT_NULL);
 
     struct ppp_device *ppp_device = (struct ppp_device *)device;
+
+    uart_oflag = RT_DEVICE_OFLAG_RDWR;
+    if (ppp_device->uart->flag & RT_DEVICE_FLAG_DMA_RX)
+        uart_oflag |= RT_DEVICE_FLAG_DMA_RX;
+    else if (ppp_device->uart->flag & RT_DEVICE_FLAG_INT_RX)
+        uart_oflag = RT_DEVICE_FLAG_INT_RX;
+    if (ppp_device->uart->flag & RT_DEVICE_FLAG_DMA_TX)
+        uart_oflag |= RT_DEVICE_FLAG_DMA_TX;
+    else if (ppp_device->uart->flag & RT_DEVICE_FLAG_INT_TX)
+        uart_oflag |= RT_DEVICE_FLAG_INT_TX;
+
+    if (rt_device_open(ppp_device->uart, uart_oflag))
+    {
+        LOG_E("ppp device open failed.");
+        result = -RT_ERROR;
+        goto __exit;
+    }
 
     rt_event_init(&ppp_device->event, "pppev", RT_IPC_FLAG_FIFO);
     /* we can do nothing */
@@ -388,22 +400,12 @@ static rt_err_t ppp_device_open(struct rt_device *device, rt_uint16_t oflag)
         goto __exit;
     }
 
-    /* uart conversion into ppp device , find and open command device */
-    ppp_device->uart = rt_device_find(ppp_device->uart_name);
-    if (ppp_device->uart  != RT_NULL)
-    {
-        RT_ASSERT(ppp_device->uart->type == RT_Device_Class_Char);
+    RT_ASSERT(ppp_device->uart && ppp_device->uart->type == RT_Device_Class_Char);
 
-        /* uart transfer into tcpip protocol stack */
-        rt_device_set_rx_indicate(ppp_device->uart, ppp_device_rx_ind);
-        LOG_I("(%s) is used by ppp_device.", ppp_device->uart_name);
-    }
-    else
-    {
-        LOG_E("Cannot find %s device.", ppp_device->uart_name);
-        result = -RT_ERROR;
-        goto __exit;
-    }
+    /* uart transfer into tcpip protocol stack */
+    rt_device_set_rx_indicate(ppp_device->uart, ppp_device_rx_ind);
+    LOG_I("(%s) is used by ppp_device.", ppp_device->uart->parent.name);
+
 
     /* creat pppos */
     ppp_device->pcb = pppapi_pppos_create(&(ppp_device->pppif), ppp_data_send, ppp_status_changed, ppp_device);
@@ -481,6 +483,7 @@ static rt_err_t ppp_device_close(struct rt_device *device)
     rt_event_send(&ppp_device->event, PPP_EVENT_CLOSE_REQ);
     rt_event_recv(&ppp_device->event, PPP_EVENT_CLOSED, RT_EVENT_FLAG_OR | RT_EVENT_FLAG_CLEAR, RT_WAITING_FOREVER, &event);
 
+    rt_device_set_rx_indicate(ppp_device->uart, RT_NULL);
     ppp_netdev_del(&ppp_device->pppif);
     ppp_free(ppp_device->pcb);
     LOG_D("ppp netdev has been detach.");
@@ -491,6 +494,7 @@ static rt_err_t ppp_device_close(struct rt_device *device)
         LOG_E("ppp_device->ops->close failed.");
         return -RT_ERROR;
     }
+    rt_device_close(ppp_device->uart);
     /* cut down piont to piont at data link layer */
     LOG_I("ppp_device has been closed.");
     return RT_EOK;
@@ -605,11 +609,16 @@ int ppp_device_register(struct ppp_device *ppp_device, const char *dev_name, con
  *         -1: error
  *
  */
-int ppp_device_attach(struct ppp_device *ppp_device, char *uart_name, void *user_data)
+int ppp_device_attach(struct ppp_device *ppp_device, const char *uart_name, void *user_data)
 {
     RT_ASSERT(ppp_device != RT_NULL);
 
-    ppp_device->uart_name = uart_name;
+    ppp_device->uart = rt_device_find(uart_name);
+    if (!ppp_device->uart)
+    {
+        LOG_E("ppp_device_attach, cannot found %s", uart_name);
+        return -RT_ERROR;
+    }
     ppp_device->user_data = user_data;
 
     if (ppp_device->parent.open && ppp_device->parent.open((rt_device_t)ppp_device, RT_TRUE) != RT_EOK)
@@ -640,7 +649,7 @@ int ppp_device_detach(struct ppp_device *ppp_device)
         return -RT_ERROR;
     }
 
-    ppp_device->uart_name = RT_NULL;
+    ppp_device->uart = RT_NULL;
     ppp_device->user_data = RT_NULL;
 
     return RT_EOK;

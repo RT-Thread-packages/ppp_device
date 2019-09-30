@@ -51,7 +51,7 @@ static rt_err_t ppp_air720_control(struct ppp_device *device, int cmd, void *arg
     switch (cmd)
     {
     case PPP_CTL_PREPARE:
-        return modem_chat(device->uart_name, mcd, sizeof(mcd) / sizeof(mcd[0]));
+        return modem_chat(device->uart, mcd, sizeof(mcd) / sizeof(mcd[0]));
     default:
         return -RT_ENOSYS;
     }

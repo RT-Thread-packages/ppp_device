@@ -59,19 +59,18 @@ enum ppp_conn_type
 struct ppp_device
 {
     struct rt_device parent;                    /* join rt_device frame */
-    rt_device_t uart;
-    char *uart_name;                            /* the name of the low-level driver device */
+    rt_device_t uart;                           /* low-level uart device object */
     const struct ppp_device_ops *ops;           /* ppp device ops interface */
     enum ppp_conn_type conn_type;               /* using usb or uart */
 
     ppp_pcb *pcb;                               /* ppp protocol control block */
     struct netif pppif;
 
-    rt_size_t  rxpos;
-    rt_uint8_t rxbuf[PPP_FRAME_MAX];
-    rt_uint8_t state;
+    rt_size_t  rxpos;                           /* valid size of receive frame buffer */
+    rt_uint8_t rxbuf[PPP_FRAME_MAX];            /* receive frame buffer */
+    rt_uint8_t state;                           /* internal state */
 
-    struct rt_event event;
+    struct rt_event event;                      /* interthread communication */
 
     rt_thread_t recv_tid;                       /* recieve thread point */
     void *user_data;                            /* reserve */
@@ -97,7 +96,7 @@ typedef  rt_err_t (*uart_rx_cb)(rt_device_t dev, rt_size_t size);
 
 /* offer register funciton to user */
 int ppp_device_register(struct ppp_device *ppp_device, const char *dev_name, const char *uart_name, void *user_data);
-int ppp_device_attach(struct ppp_device *ppp_device, char *uart_name, void *user_data);
+int ppp_device_attach(struct ppp_device *ppp_device, const char *uart_name, void *user_data);
 int ppp_device_detach(struct ppp_device *ppp_device);
 
 #endif /* __PPP_DEVICE_H__ */
