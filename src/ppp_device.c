@@ -497,7 +497,7 @@ static rt_err_t ppp_device_control(struct rt_device *device,int cmd, void *args)
 {
     RT_ASSERT(device != RT_NULL);
 
-    return RT_ENOSYS;
+    return -RT_ENOSYS;
 }
 
 /*
