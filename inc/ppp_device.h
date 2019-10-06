@@ -78,10 +78,7 @@ struct ppp_device
 
 struct ppp_device_ops
 {
-    rt_err_t  (*init)   (struct ppp_device *dev);
-    rt_err_t  (*open)   (struct ppp_device *dev, rt_uint16_t oflag);
-    rt_err_t  (*close)  (struct ppp_device *dev);
-    rt_err_t  (*control)(struct ppp_device *dev, int cmd, void *args);
+    rt_err_t  (*prepare)   (struct ppp_device *dev);
 };
 
 enum ppp_reci_status

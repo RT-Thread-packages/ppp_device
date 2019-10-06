@@ -246,7 +246,7 @@ static int ppp_recv_entry(struct ppp_device *device)
     {
         if (device->state == PPP_STATE_PREPARE)
         {
-            if (device->ops->control(device, PPP_CTL_PREPARE, RT_NULL) == RT_EOK)
+            if (!device->ops->prepare || device->ops->prepare(device) == RT_EOK)
             {
                 ppp_start_receive_frame(device);
                 pppapi_connect(device->pcb, 0);
@@ -349,11 +349,6 @@ static rt_err_t ppp_device_init(struct rt_device *device)
     struct ppp_device *ppp_device = (struct ppp_device *)device;
     RT_ASSERT(ppp_device != RT_NULL);
 
-    if(ppp_device->ops->init && ppp_device->ops->init(ppp_device) != RT_EOK)
-    {
-        LOG_E("ppp_device->ops->init failed.");
-        return -RT_ERROR;
-    }
     return RT_EOK;
 }
 
@@ -393,12 +388,6 @@ static rt_err_t ppp_device_open(struct rt_device *device, rt_uint16_t oflag)
 
     rt_event_init(&ppp_device->event, "pppev", RT_IPC_FLAG_FIFO);
     /* we can do nothing */
-    if (ppp_device->ops->open && ppp_device->ops->open(ppp_device, oflag) != RT_EOK)
-    {
-        LOG_E("ppp device open failed.");
-        result = -RT_ERROR;
-        goto __exit;
-    }
 
     RT_ASSERT(ppp_device->uart && ppp_device->uart->type == RT_Device_Class_Char);
 
@@ -489,11 +478,6 @@ static rt_err_t ppp_device_close(struct rt_device *device)
     LOG_D("ppp netdev has been detach.");
     rt_event_detach(&ppp_device->event);
 
-    if (ppp_device->ops->close && ppp_device->ops->close(ppp_device) != RT_EOK)
-    {
-        LOG_E("ppp_device->ops->close failed.");
-        return -RT_ERROR;
-    }
     rt_device_close(ppp_device->uart);
     /* cut down piont to piont at data link layer */
     LOG_I("ppp_device has been closed.");
@@ -513,16 +497,7 @@ static rt_err_t ppp_device_control(struct rt_device *device,int cmd, void *args)
 {
     RT_ASSERT(device != RT_NULL);
 
-    struct ppp_device *ppp_device = (struct ppp_device *)device;
-    RT_ASSERT(ppp_device != RT_NULL);
-
-    /* use ppp_device_control function */
-    if(ppp_device->ops->control && ppp_device->ops->control(ppp_device, cmd, args) != RT_EOK)
-    {
-        LOG_E("ppp_device->ops->control failed.");
-        return -RT_ERROR;
-    }
-    return RT_EOK;
+    return RT_ENOSYS;
 }
 
 /*

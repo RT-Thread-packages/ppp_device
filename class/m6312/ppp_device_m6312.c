@@ -43,9 +43,9 @@ static const struct modem_chat_data mcd[] =
     {PPP_DAIL_CMD,   MODEM_CHAT_RESP_CONNECT,   2, 30, RT_FALSE},
 };
 
-static rt_err_t m6312_prepare(struct ppp_m6312 *m6312)
+static rt_err_t ppp_m6312_prepare(struct ppp_device *device)
 {
-
+    struct ppp_m6312 *m6312 = (struct ppp_m6312*)device;
     if (m6312->power_pin >= 0)
     {
         rt_pin_write(m6312->power_pin, M6312_POWER_OFF);
@@ -55,46 +55,17 @@ static rt_err_t m6312_prepare(struct ppp_m6312 *m6312)
     else
     {
         rt_err_t err;
-        err = modem_chat(m6312->device.uart, rst_mcd, sizeof(rst_mcd) / sizeof(rst_mcd[0]));
+        err = modem_chat(device->uart, rst_mcd, sizeof(rst_mcd) / sizeof(rst_mcd[0]));
         if (err)
             return err;
     }
-    return modem_chat(m6312->device.uart, mcd, sizeof(mcd) / sizeof(mcd[0]));
-}
-
-/*
- * Get into PPP modem,using uart
- *
- * @param NULL
- *
- * @return  0: execute successful
- *         -1: send AT commands error
- *         -5: no memory
- */
-static rt_err_t ppp_m6312_open(struct ppp_device *device, rt_uint16_t oflag)
-{
-    RT_ASSERT(device != RT_NULL);
-    return RT_EOK;
-}
-
-static rt_err_t ppp_m6312_control(struct ppp_device *device, int cmd, void *args)
-{
-    switch (cmd)
-    {
-    case PPP_CTL_PREPARE:
-        return m6312_prepare((struct ppp_m6312*)device);
-    default:
-        return -RT_ENOSYS;
-    }
+    return modem_chat(device->uart, mcd, sizeof(mcd) / sizeof(mcd[0]));
 }
 
 /* ppp_m6312_ops for ppp_device_ops , a common interface */
 static struct ppp_device_ops m6312_ops =
 {
-    RT_NULL,
-    ppp_m6312_open,
-    RT_NULL,
-    ppp_m6312_control,
+    .prepare = ppp_m6312_prepare,
 };
 
 /*

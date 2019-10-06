@@ -31,40 +31,15 @@ static const struct modem_chat_data mcd[] =
     {PPP_DAIL_CMD,   MODEM_CHAT_RESP_CONNECT,         2, 30, RT_FALSE},
 };
 
-/*
- * Get into PPP modem,using uart
- *
- * @param NULL
- *
- * @return  0: execute successful
- *         -1: send AT commands error
- *         -5: no memory
- */
-static rt_err_t ppp_air720_open(struct ppp_device *device, rt_uint16_t oflag)
+static rt_err_t ppp_air720_prepare(struct ppp_device *device)
 {
-    RT_ASSERT(device != RT_NULL);
-    return RT_EOK;
+    return modem_chat(device->uart, mcd, sizeof(mcd) / sizeof(mcd[0]));
 }
-
-static rt_err_t ppp_air720_control(struct ppp_device *device, int cmd, void *args)
-{
-    switch (cmd)
-    {
-    case PPP_CTL_PREPARE:
-        return modem_chat(device->uart, mcd, sizeof(mcd) / sizeof(mcd[0]));
-    default:
-        return -RT_ENOSYS;
-    }
-}
-
 
 /* ppp_air720_ops for ppp_device_ops , a common interface */
 static struct ppp_device_ops air720_ops =
 {
-    RT_NULL,
-    ppp_air720_open,
-    RT_NULL,
-    ppp_air720_control,
+    .prepare = ppp_air720_prepare,
 };
 
 /*
