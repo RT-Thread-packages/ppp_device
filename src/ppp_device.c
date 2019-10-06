@@ -560,17 +560,6 @@ int ppp_device_register(struct ppp_device *ppp_device, const char *dev_name, con
         LOG_I("ppp_device has registered rt_device frame successful.");
     }
 
-    /* when ppp device has register rt_device frame, start up it */
-    do
-    {
-        if (device->init && device->init((rt_device_t)ppp_device) != RT_EOK)
-        {
-            LOG_E("ppp device init failed.try it in %ds", PPP_RECONNECT_TIME / 100);
-            rt_thread_mdelay(PPP_RECONNECT_TIME);
-            result = -RT_ERROR;
-        }
-    } while (result != RT_EOK);
-
     return result;
 }
 
