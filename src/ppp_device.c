@@ -348,6 +348,7 @@ static rt_err_t ppp_device_init(struct rt_device *device)
 
     struct ppp_device *ppp_device = (struct ppp_device *)device;
     RT_ASSERT(ppp_device != RT_NULL);
+    device->flag |= RT_DEVICE_FLAG_STANDALONE;
 
     return RT_EOK;
 }
@@ -585,7 +586,7 @@ int ppp_device_attach(struct ppp_device *ppp_device, const char *uart_name, void
     }
     ppp_device->user_data = user_data;
 
-    if (ppp_device->parent.open && ppp_device->parent.open((rt_device_t)ppp_device, RT_TRUE) != RT_EOK)
+    if (rt_device_open(&ppp_device->parent, 0) != RT_EOK)
     {
         LOG_E("ppp_device_attach failed. Can't open device(%d)");
         return -RT_ERROR;
@@ -607,7 +608,7 @@ int ppp_device_detach(struct ppp_device *ppp_device)
 {
     RT_ASSERT(ppp_device != RT_NULL);
 
-    if (ppp_device->parent.close && ppp_device->parent.close((rt_device_t)ppp_device) != RT_EOK)
+    if (rt_device_close(&ppp_device->parent) != RT_EOK)
     {
         LOG_E("ppp_device_detach failed. Can't open device.");
         return -RT_ERROR;
