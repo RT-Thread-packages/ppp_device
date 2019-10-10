@@ -491,7 +491,7 @@ static rt_err_t ppp_device_open(struct rt_device *device, rt_uint16_t oflag)
     else if (ppp_device->uart->flag & RT_DEVICE_FLAG_INT_TX)
         uart_oflag |= RT_DEVICE_FLAG_INT_TX;
 
-    if (rt_device_open(ppp_device->uart, uart_oflag))
+    if (rt_device_open(ppp_device->uart, uart_oflag) != RT_EOK)
     {
         LOG_E("ppp device open failed.");
         result = -RT_ERROR;
