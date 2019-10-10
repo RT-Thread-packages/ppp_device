@@ -6,6 +6,7 @@
  * Change Logs:
  * Date           Author          Notes
  * 2019-08-15     xiangxistu      the first version
+ * 2019-10-01     xiaofan         rewrite ppp_recv thread
  */
 
 #include <ppp_device.h>
@@ -24,12 +25,10 @@
 enum {
     PPP_STATE_PREPARE,
     PPP_STATE_WAIT_HEAD,
-    PPP_STATE_WAIT_ADDR,
     PPP_STATE_RECV_DATA,
 };
 
 #define PPP_DATA_BEGIN_END       0x7e
-#define PPP_DATA_ADDR            0xff
 #define DATA_EFFECTIVE_FLAG      0x00
 #define RECON_ERR_COUNTS         0x02
 #define PPP_RECONNECT_TIME       2500
@@ -47,6 +46,42 @@ enum {
 
 
 static struct ppp_device *_g_ppp_device = RT_NULL;
+
+static void ppp_debug_hexdump(const void *data, size_t len)
+{
+#ifdef PPP_DEVICE_DEBUG
+    const size_t maxlen = 16;
+    rt_uint32_t offset = 0;
+    size_t curlen;
+    char line[maxlen*4+3];
+    char *p;
+    const unsigned char *src = data;
+
+    while (len > 0)
+    {
+        curlen = len < maxlen ? len : maxlen;
+        p = line;
+        for (size_t i = 0; i < curlen; i++)
+        {
+            rt_sprintf(p, "%02x ", (unsigned char)src[i]);
+            p += 3;
+        }
+        memset(p, ' ', (maxlen - curlen) * 3);
+        p += (maxlen - curlen) * 3;
+        *p++ = '|';
+        *p++ = ' ';
+        for (size_t i = 0; i < curlen; i++)
+        {
+            *p++ = (0x20 < src[i] && src[i] < 0x7e) ? src[i] : '.';
+        }
+        *p++ = '\0';
+        LOG_D("[%04x] %s", offset, line);
+        len -= curlen;
+        src += curlen;
+        offset += curlen;
+    }
+#endif
+}
 
 /*
  * Receive callback function , release rx_notice when uart acquire data
@@ -89,6 +124,10 @@ static uint32_t ppp_data_send(ppp_pcb *pcb, uint8_t *data, uint32_t len, void *p
     if (device->state == PPP_STATE_PREPARE)
         return 0;
 
+#ifdef PPP_DEVICE_DEBUG_TX
+    LOG_D("TX:");
+    ppp_debug_hexdump(data, len);
+#endif
     /* the return data is the actually written size on successful */
     return rt_device_write(device->uart, 0, data, len);
 }
@@ -157,16 +196,82 @@ static void ppp_status_changed(ppp_pcb *pcb, int err_code, void *ctx)
         rt_event_send(&pppdev->event, PPP_EVENT_LOST);
 }
 
-static inline void ppp_savebyte(struct ppp_device *device, rt_uint8_t dat)
-{
-    RT_ASSERT(device->rxpos < sizeof(device->rxbuf));
-    device->rxbuf[device->rxpos++] = dat;
-}
-
 static inline void ppp_start_receive_frame(struct ppp_device *device)
 {
     device->rxpos = 0;
     device->state = PPP_STATE_WAIT_HEAD;
+}
+
+#ifdef PPP_DEVICE_DEBUG_DROP
+static inline void ppp_show_dropbuf(struct ppp_device *device)
+{
+    if (!device->droppos)
+        return;
+    LOG_D("DROP: ");
+    ppp_debug_hexdump(device->dropbuf, device->droppos);
+    device->dropcnt += device->droppos;
+    device->droppos = 0;
+}
+
+static inline void ppp_show_rxbuf_as_drop(struct ppp_device *device)
+{
+    if (!device->rxpos)
+        return;
+    LOG_D("DROP: ");
+    ppp_debug_hexdump(device->rxbuf, device->rxpos);
+    device->dropcnt += device->rxpos;
+    device->rxpos = 0;
+}
+
+static inline void ppp_rxbuf_drop(struct ppp_device *device)
+{
+    // if we have no enough drop-buffer, we should display and clear drop-buffer
+    if (PPP_DROP_BUF - device->droppos < device->rxpos)
+    {
+        ppp_show_dropbuf(device);
+        // if our drop-buffer size less than or equal current valid size of rx-buffer, we should display and clear rx-buffer
+        if (PPP_DROP_BUF <= device->rxpos)
+        {
+            ppp_show_rxbuf_as_drop(device);
+        }
+        return;
+    }
+
+    rt_memcpy(&device->dropbuf[device->droppos], device->rxbuf, device->rxpos);
+    device->droppos += device->rxpos;
+    device->rxpos = 0;
+
+    if (device->droppos == PPP_DROP_BUF)
+    {
+        ppp_show_dropbuf(device);
+    }
+
+    ppp_start_receive_frame(device);
+}
+
+#else
+static inline void ppp_show_dropbuf(struct ppp_device *device) {}
+#define ppp_rxbuf_drop(device) ppp_start_receive_frame(device)
+#endif // !PPP_DEVICE_DEBUG_DROP
+
+static inline void ppp_processdata_enter(struct ppp_device *device)
+{
+    ppp_start_receive_frame(device);
+#ifdef PPP_DEVICE_DEBUG_DROP
+    device->droppos = 0;
+#endif
+}
+
+static inline void ppp_processdata_leave(struct ppp_device *device)
+{
+    ppp_rxbuf_drop(device);
+    ppp_show_dropbuf(device);
+}
+
+static inline void ppp_savebyte(struct ppp_device *device, rt_uint8_t dat)
+{
+    RT_ASSERT(device->rxpos < sizeof(device->rxbuf));
+    device->rxbuf[device->rxpos++] = dat;
 }
 
 static void ppp_recv_processdata(struct ppp_device *device, const rt_uint8_t *buf, rt_size_t len)
@@ -176,35 +281,37 @@ static void ppp_recv_processdata(struct ppp_device *device, const rt_uint8_t *bu
     while (len--)
     {
         dat = *buf++;
+
 process_dat:
-        ppp_savebyte(device, dat);
         switch (device->state)
         {
         case PPP_STATE_WAIT_HEAD:
+            ppp_savebyte(device, dat);
             if (dat == PPP_DATA_BEGIN_END)
             {
-                device->state = PPP_STATE_WAIT_ADDR;
-            }
-            else
-            {
-                ppp_start_receive_frame(device);
-            }
-            break;
-        case PPP_STATE_WAIT_ADDR:
-            if (dat == PPP_DATA_ADDR)
-            {
+                ppp_show_dropbuf(device);
                 device->state = PPP_STATE_RECV_DATA;
             }
             else
             {
-                ppp_start_receive_frame(device);
-                goto process_dat;
+                ppp_rxbuf_drop(device);
             }
-
             break;
         case PPP_STATE_RECV_DATA:
+            if (dat == PPP_DATA_BEGIN_END && device->rxpos == 1)
+            {
+                LOG_D("found continuous 0x7e");
+                // start receive a new frame
+                ppp_rxbuf_drop(device);
+                goto process_dat;
+            }
+            ppp_savebyte(device, dat);
             if (dat == PPP_DATA_BEGIN_END)
             {
+#ifdef PPP_DEVICE_DEBUG_RX
+                LOG_D("RX:");
+                ppp_debug_hexdump(device->rxbuf, device->rxpos);
+#endif
                 rt_enter_critical();
                 pppos_input_tcpip(device->pcb, (u8_t *)device->rxbuf, device->rxpos);
                 rt_exit_critical();
@@ -217,7 +324,7 @@ process_dat:
         if (device->rxpos == sizeof(device->rxbuf))
         {
             LOG_W("receive ppp frame is lagger than %u", (unsigned int)sizeof(device->rxbuf));
-            ppp_start_receive_frame(device);
+            ppp_rxbuf_drop(device);
         }
     }
 }
@@ -248,7 +355,7 @@ static int ppp_recv_entry(struct ppp_device *device)
         {
             if (!device->ops->prepare || device->ops->prepare(device) == RT_EOK)
             {
-                ppp_start_receive_frame(device);
+                ppp_processdata_enter(device);
                 pppapi_connect(device->pcb, 0);
             }
             else
@@ -280,6 +387,7 @@ static int ppp_recv_entry(struct ppp_device *device)
 
         if (event & PPP_EVENT_LOST)
         {
+            ppp_processdata_leave(device);
             if (closing)
             {
                 LOG_W("ppp closing success");
@@ -349,7 +457,10 @@ static rt_err_t ppp_device_init(struct rt_device *device)
     struct ppp_device *ppp_device = (struct ppp_device *)device;
     RT_ASSERT(ppp_device != RT_NULL);
     device->flag |= RT_DEVICE_FLAG_STANDALONE;
-
+#ifdef PPP_DEVICE_DEBUG_DROP
+    ppp_device->dropcnt = 0;
+    ppp_device->droppos = 0;
+#endif
     return RT_EOK;
 }
 

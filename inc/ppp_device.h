@@ -39,6 +39,7 @@
 #define PPP_CTL_PREPARE      10
 
 #define PPP_FRAME_MAX       1550
+#define PPP_DROP_BUF        PPP_FRAME_MAX
 
 enum ppp_trans_type
 {
@@ -65,6 +66,12 @@ struct ppp_device
 
     ppp_pcb *pcb;                               /* ppp protocol control block */
     struct netif pppif;
+
+#ifdef PPP_DEVICE_DEBUG_DROP
+    rt_size_t  dropcnt;                         /* counter of drop bytes */
+    rt_size_t  droppos;                         /* valid size of drop buffer */
+    rt_uint8_t dropbuf[PPP_DROP_BUF];           /* drop buffer */
+#endif
 
     rt_size_t  rxpos;                           /* valid size of receive frame buffer */
     rt_uint8_t rxbuf[PPP_FRAME_MAX];            /* receive frame buffer */
