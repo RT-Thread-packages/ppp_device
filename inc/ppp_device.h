@@ -36,6 +36,10 @@
 #define PPP_CTL_GET_CSQ      1
 #define PPP_CTL_GET_IEMI     2
 #define PPP_CTL_GET_TYPE     3
+#define PPP_CTL_PREPARE      10
+
+#define PPP_FRAME_MAX       1550
+#define PPP_DROP_BUF        PPP_FRAME_MAX
 
 enum ppp_trans_type
 {
@@ -56,31 +60,32 @@ enum ppp_conn_type
 struct ppp_device
 {
     struct rt_device parent;                    /* join rt_device frame */
-    char *uart_name;                            /* the name of the low-level driver device */
+    rt_device_t uart;                           /* low-level uart device object */
     const struct ppp_device_ops *ops;           /* ppp device ops interface */
     enum ppp_conn_type conn_type;               /* using usb or uart */
 
     ppp_pcb *pcb;                               /* ppp protocol control block */
     struct netif pppif;
 
-    char *recv_line_buf;                        /* the current received one line data buffer */
-    rt_size_t recv_line_len;                    /* The length of the currently received one line data */
-    rt_size_t recv_bufsz;                       /* The maximum supported receive data length */
+#ifdef PPP_DEVICE_DEBUG_DROP
+    rt_size_t  dropcnt;                         /* counter of drop bytes */
+    rt_size_t  droppos;                         /* valid size of drop buffer */
+    rt_uint8_t dropbuf[PPP_DROP_BUF];           /* drop buffer */
+#endif
 
-    rt_sem_t rx_notice;                         /* attention uart to recieve data delivery to tcpip */
-    rt_mutex_t lock;                            /* protect uart */
+    rt_size_t  rxpos;                           /* valid size of receive frame buffer */
+    rt_uint8_t rxbuf[PPP_FRAME_MAX];            /* receive frame buffer */
+    rt_uint8_t state;                           /* internal state */
+
+    struct rt_event event;                      /* interthread communication */
 
     rt_thread_t recv_tid;                       /* recieve thread point */
-    rt_bool_t ppp_link_status;                  /* if ppp link is shut down, close recieve thread and shut down */
     void *user_data;                            /* reserve */
 };
 
 struct ppp_device_ops
 {
-    rt_err_t  (*init)   (struct ppp_device *dev);
-    rt_err_t  (*open)   (struct ppp_device *dev, rt_uint16_t oflag);
-    rt_err_t  (*close)  (struct ppp_device *dev);
-    rt_err_t  (*control)(struct ppp_device *dev, int cmd, void *args);
+    rt_err_t  (*prepare)   (struct ppp_device *dev);
 };
 
 enum ppp_reci_status
@@ -95,7 +100,7 @@ typedef  rt_err_t (*uart_rx_cb)(rt_device_t dev, rt_size_t size);
 
 /* offer register funciton to user */
 int ppp_device_register(struct ppp_device *ppp_device, const char *dev_name, const char *uart_name, void *user_data);
-int ppp_device_attach(struct ppp_device *ppp_device, char *uart_name, void *user_data);
+int ppp_device_attach(struct ppp_device *ppp_device, const char *uart_name, void *user_data);
 int ppp_device_detach(struct ppp_device *ppp_device);
 
 #endif /* __PPP_DEVICE_H__ */

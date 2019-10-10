@@ -60,3 +60,22 @@ int ppp_sample_stop(void)
     return RT_EOK;
 }
 MSH_CMD_EXPORT_ALIAS(ppp_sample_stop, ppp_stop, a sample of ppp device for turning off network);
+
+#ifdef PPP_DEVICE_DEBUG_DROP
+static int ppp_drop(void)
+{
+    rt_device_t device = RT_NULL;
+    struct ppp_device *ppp_device;
+    device = rt_device_find(PPP_DEVICE_NAME);
+    if(device == RT_NULL)
+    {
+        LOG_E("Can't find device (%s).", PPP_DEVICE_NAME);
+        return -RT_ERROR;
+    }
+    ppp_device = (struct ppp_device*)device;
+    LOG_I("%ld", (unsigned long)(ppp_device->dropcnt + ppp_device->droppos));
+    return RT_EOK;
+ }
+
+MSH_CMD_EXPORT_ALIAS(ppp_drop, ppp_drop, show drop statistics);
+#endif
