@@ -234,16 +234,18 @@ static inline void ppp_rxbuf_drop(struct ppp_device *device)
         {
             ppp_show_rxbuf_as_drop(device);
         }
-        return;
     }
 
-    rt_memcpy(&device->dropbuf[device->droppos], device->rxbuf, device->rxpos);
-    device->droppos += device->rxpos;
-    device->rxpos = 0;
-
-    if (device->droppos == PPP_DROP_BUF)
+    if (device->rxpos)
     {
-        ppp_show_dropbuf(device);
+        rt_memcpy(&device->dropbuf[device->droppos], device->rxbuf, device->rxpos);
+        device->droppos += device->rxpos;
+        device->rxpos = 0;
+
+        if (device->droppos == PPP_DROP_BUF)
+        {
+            ppp_show_dropbuf(device);
+        }
     }
 
     ppp_start_receive_frame(device);
