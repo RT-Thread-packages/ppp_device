@@ -27,6 +27,7 @@
 
 /* proviode a public interface to register netdev */
 rt_err_t ppp_netdev_add(struct netif *ppp_netif);
+rt_err_t ppp_netdev_refresh(struct netif *ppp_netif);
 void ppp_netdev_del(struct netif *ppp_netif);
 extern struct netdev *netdev_get_by_name(const char *name);
 extern int netdev_unregister(struct netdev *netdev);
