@@ -248,5 +248,6 @@ rt_err_t modem_chat(rt_device_t serial, const struct modem_chat_data *data, rt_s
     }
 
     serial->rx_indicate = old_rx_ind;
+    LOG_I("(%s) has control by ppp_device.", serial->parent.name);
     return err;
 }
