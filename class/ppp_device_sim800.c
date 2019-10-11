@@ -8,7 +8,7 @@
  * 2019-08-15    xiangxistu      the first version
  */
 
-#include <ppp_device_sim800.h>
+#include <ppp_device.h>
 #include <ppp_chat.h>
 #include <rtdevice.h>
 
@@ -27,6 +27,8 @@
 #define SIM800_POWER_PIN -1
 #endif
 
+#define SIM800_WARTING_TIME_BASE 500
+
 static const struct modem_chat_data rst_mcd[] =
 {
     {"+++",          MODEM_CHAT_RESP_NOT_NEED,        30, 1, RT_TRUE},
@@ -43,12 +45,11 @@ static const struct modem_chat_data mcd[] =
 
 static rt_err_t ppp_sim800_prepare(struct ppp_device *device)
 {
-    struct ppp_sim800 *sim800 = (struct ppp_sim800*)device;
-    if (sim800->power_pin >= 0)
+    if (device->power_pin >= 0)
     {
-        rt_pin_write(sim800->power_pin, SIM800_POWER_OFF);
+        rt_pin_write(device->power_pin, SIM800_POWER_OFF);
         rt_thread_mdelay(SIM800_WARTING_TIME_BASE);
-        rt_pin_write(sim800->power_pin, SIM800_POWER_ON);
+        rt_pin_write(device->power_pin, SIM800_POWER_ON);
     }
     else
     {
@@ -75,23 +76,21 @@ static struct ppp_device_ops sim800_ops =
 int ppp_sim800_register(void)
 {
     struct ppp_device *ppp_device = RT_NULL;
-    struct ppp_sim800 *sim800 = RT_NULL;
 
-    sim800 = rt_malloc(sizeof(struct ppp_sim800));
-    if(sim800 == RT_NULL)
+    ppp_device = rt_malloc(sizeof(struct ppp_device));
+    if(ppp_device == RT_NULL)
     {
-        LOG_E("No memory for struct sim800.");
+        LOG_E("No memory for struct sim800 ppp_device.");
         return -RT_ENOMEM;
     }
 
-    sim800->power_pin = SIM800_POWER_PIN;
-    if (sim800->power_pin >= 0)
+    ppp_device->power_pin = SIM800_POWER_PIN;
+    if (ppp_device->power_pin >= 0)
     {
-        rt_pin_mode(sim800->power_pin, PIN_MODE_OUTPUT);
-        rt_pin_write(sim800->power_pin, SIM800_POWER_OFF);
+        rt_pin_mode(ppp_device->power_pin, PIN_MODE_OUTPUT);
+        rt_pin_write(ppp_device->power_pin, SIM800_POWER_OFF);
     }
 
-    ppp_device = &(sim800->device);
     ppp_device->ops = &sim800_ops;
 
     LOG_D("ppp sim800 is registering ppp_device");
