@@ -8,7 +8,7 @@
  * 2019-09-24     xiaofao        the first version
  */
 
-#include <ppp_device_m6312.h>
+#include <ppp_device.h>
 #include <ppp_chat.h>
 #include <rtdevice.h>
 
@@ -27,6 +27,7 @@
 #define M6312_POWER_PIN -1
 #endif
 
+#define M6312_WARTING_TIME_BASE 500
 
 static const struct modem_chat_data rst_mcd[] =
 {
@@ -45,12 +46,11 @@ static const struct modem_chat_data mcd[] =
 
 static rt_err_t ppp_m6312_prepare(struct ppp_device *device)
 {
-    struct ppp_m6312 *m6312 = (struct ppp_m6312*)device;
-    if (m6312->power_pin >= 0)
+    if (device->power_pin >= 0)
     {
-        rt_pin_write(m6312->power_pin, M6312_POWER_OFF);
+        rt_pin_write(device->power_pin, M6312_POWER_OFF);
         rt_thread_mdelay(M6312_WARTING_TIME_BASE);
-        rt_pin_write(m6312->power_pin, M6312_POWER_ON);
+        rt_pin_write(device->power_pin, M6312_POWER_ON);
     }
     else
     {
@@ -77,23 +77,21 @@ static struct ppp_device_ops m6312_ops =
 int ppp_m6312_register(void)
 {
     struct ppp_device *ppp_device = RT_NULL;
-    struct ppp_m6312 *m6312 = RT_NULL;
 
-    m6312 = rt_malloc(sizeof(struct ppp_m6312));
-    if(m6312 == RT_NULL)
+    ppp_device = rt_malloc(sizeof(struct ppp_device));
+    if(ppp_device == RT_NULL)
     {
-        LOG_E("No memory for struct m6312.");
+        LOG_E("No memory for struct m6312 ppp_device.");
         return -RT_ENOMEM;
     }
 
-    m6312->power_pin = M6312_POWER_PIN;
-    if (m6312->power_pin >= 0)
+    ppp_device->power_pin = M6312_POWER_PIN;
+    if (ppp_device->power_pin >= 0)
     {
-        rt_pin_mode(m6312->power_pin, PIN_MODE_OUTPUT);
-        rt_pin_write(m6312->power_pin, M6312_POWER_OFF);
+        rt_pin_mode(ppp_device->power_pin, PIN_MODE_OUTPUT);
+        rt_pin_write(ppp_device->power_pin, M6312_POWER_OFF);
     }
 
-    ppp_device = &(m6312->device);
     ppp_device->ops = &m6312_ops;
     LOG_D("ppp m6312 is registering ppp_device");
     return ppp_device_register(ppp_device, PPP_DEVICE_NAME, RT_NULL, RT_NULL);

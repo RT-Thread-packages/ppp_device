@@ -8,7 +8,7 @@
  * 2019-08-15    xiangxistu      the first version
  */
 
-#include <ppp_device_air720.h>
+#include <ppp_device.h>
 #include <ppp_chat.h>
 #include <rtdevice.h>
 
@@ -27,6 +27,8 @@
 #define AIR720_POWER_PIN -1
 #endif
 
+#define AIR720_WARTING_TIME_BASE 500
+
 static const struct modem_chat_data rst_mcd[] =
 {
     {"+++",          MODEM_CHAT_RESP_NOT_NEED,        30, 1, RT_TRUE},
@@ -43,12 +45,11 @@ static const struct modem_chat_data mcd[] =
 
 static rt_err_t ppp_air720_prepare(struct ppp_device *device)
 {
-    struct ppp_air720 *air720 = (struct ppp_air720*)device;
-    if (air720->power_pin >= 0)
+    if (device->power_pin >= 0)
     {
-        rt_pin_write(air720->power_pin, AIR720_POWER_OFF);
+        rt_pin_write(device->power_pin, AIR720_POWER_OFF);
         rt_thread_mdelay(AIR720_WARTING_TIME_BASE);
-        rt_pin_write(air720->power_pin, AIR720_POWER_ON);
+        rt_pin_write(device->power_pin, AIR720_POWER_ON);
     }
     else
     {
@@ -75,23 +76,20 @@ static struct ppp_device_ops air720_ops =
 int ppp_air720_register(void)
 {
     struct ppp_device *ppp_device = RT_NULL;
-    struct ppp_air720 *air720 = RT_NULL;
 
-    air720 = rt_malloc(sizeof(struct ppp_air720));
-    if(air720 == RT_NULL)
+    ppp_device = rt_malloc(sizeof(struct ppp_device));
+    if(ppp_device == RT_NULL)
     {
-        LOG_E("No memory for struct air720.");
+        LOG_E("No memory for air720 ppp_device.");
         return -RT_ENOMEM;
     }
 
-    air720->power_pin = AIR720_POWER_PIN;
-    if (air720->power_pin >= 0)
+    ppp_device->power_pin = AIR720_POWER_PIN;
+    if (ppp_device->power_pin >= 0)
     {
-        rt_pin_mode(air720->power_pin, PIN_MODE_OUTPUT);
-        rt_pin_write(air720->power_pin, AIR720_POWER_OFF);
+        rt_pin_mode(ppp_device->power_pin, PIN_MODE_OUTPUT);
+        rt_pin_write(ppp_device->power_pin, AIR720_POWER_OFF);
     }
-
-    ppp_device = &(air720->device);
     ppp_device->ops = &air720_ops;
 
     LOG_D("ppp air720 is registering ppp_device");

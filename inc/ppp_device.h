@@ -67,6 +67,7 @@ struct ppp_device
     rt_device_t uart;                           /* low-level uart device object */
     const struct ppp_device_ops *ops;           /* ppp device ops interface */
     enum ppp_conn_type conn_type;               /* using usb or uart */
+    rt_base_t power_pin;                        /* power pin, if device need hardware reset */
 
     ppp_pcb *pcb;                               /* ppp protocol control block */
     struct netif pppif;
