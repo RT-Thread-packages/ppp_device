@@ -174,10 +174,11 @@ msh />ping www.baidu.com
 
 ## 4. 注意事项
 
-* 一般的SIM卡因为只能从运营商网络获取内网地址，所以不能实现服务器相关功能。
-* 目前只支持一个设备通过 PPP 连接网络。
+* 一般的SIM卡因为只能从运营商网络获取内网地址，所以不能实现服务器相关功能
+* 目前只支持一个设备通过 PPP 连接网络
 * 建议不要打开 RT_DEVICE_FLAG_DMA_TX
-* 如果网络环境不好，建议关闭 Enable lin status detect feature 选项，或调整成大一点的时间。
+* 如果网络环境不好，建议关闭 Enable lin status detect feature 选项，或调整成大一点的时间
+* RT_LWIP_TCPTHREAD_STACKSIZE 需要配置为不小于 2048，及时在 network 组件中修改
 
 ## 5. 联系方式
 

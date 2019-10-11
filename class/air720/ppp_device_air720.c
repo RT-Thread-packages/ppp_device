@@ -10,6 +10,7 @@
 
 #include <ppp_device_air720.h>
 #include <ppp_chat.h>
+#include <rtdevice.h>
 
 #define DBG_TAG    "ppp.air720"
 
@@ -18,21 +19,44 @@
 #else
 #define DBG_LVL   DBG_INFO
 #endif
-
 #include <rtdbg.h>
 
-static const struct modem_chat_data mcd[] =
+#define AIR720_POWER_ON  PIN_HIGH
+#define AIR720_POWER_OFF PIN_LOW
+#ifndef AIR720_POWER_PIN
+#define AIR720_POWER_PIN -1
+#endif
+
+static const struct modem_chat_data rst_mcd[] =
 {
     {"+++",          MODEM_CHAT_RESP_NOT_NEED,        30, 1, RT_TRUE},
     {"ATH",          MODEM_CHAT_RESP_OK,              30, 1, RT_FALSE},
+};
+
+static const struct modem_chat_data mcd[] =
+{
     {"AT",           MODEM_CHAT_RESP_OK,              10, 1, RT_FALSE},
     {"ATE0",         MODEM_CHAT_RESP_OK,              1,  1, RT_FALSE},
     {PPP_APN_CMD,    MODEM_CHAT_RESP_OK,              1,  5, RT_FALSE},
-    {PPP_DAIL_CMD,   MODEM_CHAT_RESP_CONNECT,         2, 30, RT_FALSE},
+    {PPP_DAIL_CMD,   MODEM_CHAT_RESP_CONNECT,         1, 30, RT_FALSE},
 };
 
 static rt_err_t ppp_air720_prepare(struct ppp_device *device)
 {
+    struct ppp_air720 *air720 = (struct ppp_air720*)device;
+    if (air720->power_pin >= 0)
+    {
+        rt_pin_write(air720->power_pin, AIR720_POWER_OFF);
+        rt_thread_mdelay(AIR720_WARTING_TIME_BASE);
+        rt_pin_write(air720->power_pin, AIR720_POWER_ON);
+    }
+    else
+    {
+        rt_err_t err;
+        err = modem_chat(device->uart, rst_mcd, sizeof(rst_mcd) / sizeof(rst_mcd[0]));
+        if (err)
+            return err;
+    }
     return modem_chat(device->uart, mcd, sizeof(mcd) / sizeof(mcd[0]));
 }
 
@@ -42,16 +66,11 @@ static struct ppp_device_ops air720_ops =
     .prepare = ppp_air720_prepare,
 };
 
-/*
+/**
  * register air720 into ppp_device
  *
- * @parameter   RT_NULL
- *
- *
- *
- *
- * @return  ppp_device function piont
- *
+ * @return  =0:   ppp_device register successfully
+ *          <0:   ppp_device register failed
  */
 int ppp_air720_register(void)
 {
@@ -63,6 +82,13 @@ int ppp_air720_register(void)
     {
         LOG_E("No memory for struct air720.");
         return -RT_ENOMEM;
+    }
+
+    air720->power_pin = AIR720_POWER_PIN;
+    if (air720->power_pin >= 0)
+    {
+        rt_pin_mode(air720->power_pin, PIN_MODE_OUTPUT);
+        rt_pin_write(air720->power_pin, AIR720_POWER_OFF);
     }
 
     ppp_device = &(air720->device);

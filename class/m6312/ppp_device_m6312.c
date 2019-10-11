@@ -19,6 +19,7 @@
 #else
 #define DBG_LVL   DBG_INFO
 #endif
+#include <rtdbg.h>
 
 #define M6312_POWER_ON  PIN_HIGH
 #define M6312_POWER_OFF PIN_LOW
@@ -26,7 +27,6 @@
 #define M6312_POWER_PIN -1
 #endif
 
-#include <rtdbg.h>
 
 static const struct modem_chat_data rst_mcd[] =
 {
@@ -40,7 +40,7 @@ static const struct modem_chat_data mcd[] =
     {"AT",           MODEM_CHAT_RESP_OK,        10, 1, RT_FALSE},
     {"ATE0",         MODEM_CHAT_RESP_OK,        1,  1, RT_FALSE},
     {PPP_APN_CMD,    MODEM_CHAT_RESP_OK,        1,  5, RT_FALSE},
-    {PPP_DAIL_CMD,   MODEM_CHAT_RESP_CONNECT,   2, 30, RT_FALSE},
+    {PPP_DAIL_CMD,   MODEM_CHAT_RESP_CONNECT,   1, 30, RT_FALSE},
 };
 
 static rt_err_t ppp_m6312_prepare(struct ppp_device *device)
@@ -49,7 +49,7 @@ static rt_err_t ppp_m6312_prepare(struct ppp_device *device)
     if (m6312->power_pin >= 0)
     {
         rt_pin_write(m6312->power_pin, M6312_POWER_OFF);
-        rt_thread_mdelay(500);
+        rt_thread_mdelay(M6312_WARTING_TIME_BASE);
         rt_pin_write(m6312->power_pin, M6312_POWER_ON);
     }
     else
@@ -68,15 +68,11 @@ static struct ppp_device_ops m6312_ops =
     .prepare = ppp_m6312_prepare,
 };
 
-/*
+/**
  * register m6312 into ppp_device
  *
- * @param
- *
- *
- *
- * @return  ppp_device function piont
- *
+ * @return  =0:   ppp_device register successfully
+ *          <0:   ppp_device register failed
  */
 int ppp_m6312_register(void)
 {
