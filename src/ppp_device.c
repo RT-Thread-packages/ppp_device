@@ -45,7 +45,6 @@ enum
 #error "tcpip stack is too small, should greater than 2048."
 #endif
 
-
 static struct ppp_device *_g_ppp_device = RT_NULL;
 
 /*
@@ -161,7 +160,7 @@ static void ppp_status_changed(ppp_pcb *pcb, int err_code, void *ctx)
     case PPPERR_NONE: /* Connected */
         pppdev->pppif.mtu = pppif->mtu;
         ppp_netdev_refresh(&pppdev->pppif);
-        LOG_I("ppp connect successful.");
+        LOG_I("ppp_device connect successfully.");
         break;
     case PPPERR_PARAM:
         LOG_E("Invalid parameter.");
@@ -520,10 +519,10 @@ __exit:
     return result;
 }
 
-/*
+/**
  * ppp device init function,set ops funciton and base config
  *
- * @param rt_device_t *device
+ * @param dev the pointer of device driver structure
  *
  *
  * @return  0: execute successful
@@ -584,7 +583,7 @@ static rt_err_t ppp_device_open(struct rt_device *device, rt_uint16_t oflag)
 
     /* uart transfer into tcpip protocol stack */
     rt_device_set_rx_indicate(ppp_device->uart, ppp_device_rx_ind);
-    LOG_I("(%s) is used by ppp_device.", ppp_device->uart->parent.name);
+    LOG_D("(%s) is used by ppp_device.", ppp_device->uart->parent.name);
 
 
     /* creat pppos */
@@ -748,7 +747,7 @@ int ppp_device_register(struct ppp_device *ppp_device, const char *dev_name, con
     if( result == RT_EOK)
     {
         _g_ppp_device = ppp_device;
-        LOG_I("ppp_device has registered rt_device frame successful.");
+        LOG_I("ppp_device(%s) register successfully.", PPP_DEVICE_NAME);
     }
 
     return result;

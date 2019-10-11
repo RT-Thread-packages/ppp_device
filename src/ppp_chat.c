@@ -240,7 +240,7 @@ rt_err_t modem_chat(rt_device_t serial, const struct modem_chat_data *data, rt_s
     old_rx_ind = serial->rx_indicate;
     rt_device_set_rx_indicate(serial, chat_rx_ind);
 
-    LOG_I("(%s) has control by modem_chat.", serial->parent.name);
+    LOG_D("(%s) has control by modem_chat.", serial->parent.name);
     err = modem_chat_internal(serial, data, len);
     if (err != RT_EOK)
     {
@@ -248,6 +248,6 @@ rt_err_t modem_chat(rt_device_t serial, const struct modem_chat_data *data, rt_s
     }
 
     serial->rx_indicate = old_rx_ind;
-    LOG_I("(%s) has control by ppp_device.", serial->parent.name);
+    LOG_D("(%s) has control by ppp_device.", serial->parent.name);
     return err;
 }
