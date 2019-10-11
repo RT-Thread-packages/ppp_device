@@ -13,12 +13,14 @@
 
 #include <ppp_device.h>
 
+#define M6312_WARTING_TIME_BASE 500
+
 /* ppp_device base from ppp_device */
 struct ppp_m6312
 {
     struct ppp_device  device;          /* ppp_device struct in ppp_m6312 */
     enum ppp_trans_type type;           /* the type is used to establish a ppp connection */
-    rt_base_t power_pin;
+    rt_base_t power_pin;                /* power pin, if device need hardware reset */
 };
 
 extern int ppp_m6312_register(void);
