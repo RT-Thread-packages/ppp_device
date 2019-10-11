@@ -66,14 +66,11 @@ static struct ppp_device_ops sim800_ops =
     .prepare = ppp_sim800_prepare,
 };
 
-/*
+/**
  * register sim800 into ppp_device
  *
- * @param
- *
- *
- * @return  ppp_device function piont
- *
+ * @return  =0:   ppp_device register successfully
+ *          <0:   ppp_device register failed
  */
 int ppp_sim800_register(void)
 {

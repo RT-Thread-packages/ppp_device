@@ -68,15 +68,11 @@ static struct ppp_device_ops m6312_ops =
     .prepare = ppp_m6312_prepare,
 };
 
-/*
+/**
  * register m6312 into ppp_device
  *
- * @param
- *
- *
- *
- * @return  ppp_device function piont
- *
+ * @return  =0:   ppp_device register successfully
+ *          <0:   ppp_device register failed
  */
 int ppp_m6312_register(void)
 {

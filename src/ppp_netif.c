@@ -20,6 +20,14 @@
 
 extern const struct netdev_ops lwip_netdev_ops;
 
+/**
+ * add ppp_netdev into netdev
+ *
+ * @param ppp_netif      the piont of netif control block
+ *
+ * @return  RT_EOK       execute successful
+ * @return  -ERR_IF      netif error, can't alloc memory for netdev
+ */
 rt_err_t ppp_netdev_add(struct netif *ppp_netif)
 {
 #define LWIP_NETIF_NAME_LEN 2
@@ -67,6 +75,13 @@ rt_err_t ppp_netdev_add(struct netif *ppp_netif)
     return result;
 }
 
+/**
+ * refresh ppp_netif state, include DNS and netdev flag information
+ *
+ * @param ppp_netif      the piont of netif control block
+ *
+ * @return  RT_EOK       execute successful
+ */
 rt_err_t ppp_netdev_refresh(struct netif *ppp_netif)
 {
     extern const ip_addr_t *dns_getserver(u8_t numdns);
@@ -98,6 +113,11 @@ rt_err_t ppp_netdev_refresh(struct netif *ppp_netif)
     return RT_EOK;
 }
 
+/**
+ * delete netdev of ppp_netif create
+ *
+ * @param ppp_netif      the piont of netif control block
+ */
 void ppp_netdev_del(struct netif *ppp_netif)
 {
     char name[LWIP_NETIF_NAME_LEN + 1];

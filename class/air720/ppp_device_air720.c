@@ -66,16 +66,11 @@ static struct ppp_device_ops air720_ops =
     .prepare = ppp_air720_prepare,
 };
 
-/*
+/**
  * register air720 into ppp_device
  *
- * @parameter   RT_NULL
- *
- *
- *
- *
- * @return  ppp_device function piont
- *
+ * @return  =0:   ppp_device register successfully
+ *          <0:   ppp_device register failed
  */
 int ppp_air720_register(void)
 {

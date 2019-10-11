@@ -47,14 +47,11 @@ enum
 
 static struct ppp_device *_g_ppp_device = RT_NULL;
 
-/*
+/**
  * dump ppp data according to hex format,you can see data what you recieve , send, and ppp_device dorp out
  *
- * @param const void *data
- *        size_t len
- *
- * @return  NULL
- *
+ * @param data      the data what you want to dump out
+ * @param len       the length of those data
  */
 #ifdef PPP_DEVICE_DEBUG
 static void ppp_debug_hexdump(const void *data, size_t len)
@@ -92,14 +89,13 @@ static void ppp_debug_hexdump(const void *data, size_t len)
 }
 #endif
 
-/*
- * Receive callback function , release rx_notice when uart acquire data
+/**
+ * Receive callback function , send PPP_EVENT_RX_NOTIFY event when uart acquire data
  *
- * @param rt_device_t
- *        rt_size_t
+ * @param dev       the point of device driver structure, uart structure
+ * @param size      the indication callback function need this parameter
  *
- * @return  0: execute successful
- *
+ * @return  RT_EOK
  */
 static rt_err_t ppp_device_rx_ind(rt_device_t dev, rt_size_t size)
 {
@@ -112,16 +108,15 @@ static rt_err_t ppp_device_rx_ind(rt_device_t dev, rt_size_t size)
     return RT_EOK;
 }
 
-/*
+/**
  *  using ppp_data_send send data to lwIP procotol stack     PPPoS serial output callback
  *
- * @param ppp_pcb   *pcb                 pcb PPP control block
- *        uint8_t   *data                data Buffer to write to serial port
- *        uint32_t  len                  len Length of the data buffer
- *        void      *ppp_device          ctx Context of callback , ppp_device
+ * @param pcb           pcb PPP control block
+ * @param data          data Buffer to write to serial port
+ * @param len           the Length of the data buffer
+ * @param ppp_device    ctx Context of callback , ppp_device
  *
- * @return  0: creat response fail
- *
+ * @return  the point of rt_device_write fucntion or RT_NULL
  */
 static uint32_t ppp_data_send(ppp_pcb *pcb, uint8_t *data, uint32_t len, void *ppp_device)
 {
@@ -141,15 +136,12 @@ static uint32_t ppp_data_send(ppp_pcb *pcb, uint8_t *data, uint32_t len, void *p
     return rt_device_write(device->uart, 0, data, len);
 }
 
-/*
+/**
  * ppp_status_changed callback function
  *
- * @param   ppp_pcb *pcb            protocol caontrol block
- *          int     err_code
- *          void    *ctx            reserver
- *
- * @return  0: creat response fail
- *
+ * @param pcb           protocol caontrol block
+ * @param err_code      the result of ppp conncet
+ * @param ctx           ctx Context of callback , ppp_device
  */
 static void ppp_status_changed(ppp_pcb *pcb, int err_code, void *ctx)
 {
@@ -206,13 +198,10 @@ static void ppp_status_changed(ppp_pcb *pcb, int err_code, void *ctx)
         rt_event_send(&pppdev->event, PPP_EVENT_LOST);
 }
 
-/*
+/**
  * prepare for starting recieve ppp frame, clear recieve buff and set ppp device state
  *
- * @param   struct ppp_device *device
- *
- * @return  NULL
- *
+ * @param device  the point of device driver structure, ppp_device structure
  */
 static inline void ppp_start_receive_frame(struct ppp_device *device)
 {
@@ -221,12 +210,10 @@ static inline void ppp_start_receive_frame(struct ppp_device *device)
 }
 
 #ifdef PPP_DEVICE_DEBUG_DROP
-/*
+/**
  * ppp_show_dropbuf, printf the data whom ppp devcie drop out, and increase drop data conut
  *
- * @param   struct ppp_device *device
- *
- * @return  NULL
+ * @param device  the point of device driver structure, ppp_device structure
  */
 static inline void ppp_show_dropbuf(struct ppp_device *device)
 {
@@ -238,13 +225,10 @@ static inline void ppp_show_dropbuf(struct ppp_device *device)
     device->droppos = 0;
 }
 
-/*
+/**
  * ppp_show_rxbuf_as_drop, printf the data whom ppp devcie drop out, and increase drop data conut
  *
- * @param   struct ppp_device *device
- *
- * @return  NULL
- *
+ * @param device  the point of device driver structure, ppp_device structure
  */
 static inline void ppp_show_rxbuf_as_drop(struct ppp_device *device)
 {
@@ -256,13 +240,10 @@ static inline void ppp_show_rxbuf_as_drop(struct ppp_device *device)
     device->rxpos = 0;
 }
 
-/*
+/**
  * ppp_rxbuf_drop, printf the data whom ppp devcie drop out
  *
- * @param   struct ppp_device *device
- *
- * @return  NULL
- *
+ * @param device  the point of device driver structure, ppp_device structure
  */
 static inline void ppp_rxbuf_drop(struct ppp_device *device)
 {
@@ -297,13 +278,10 @@ static inline void ppp_show_dropbuf(struct ppp_device *device) {}
 #define ppp_rxbuf_drop(device) ppp_start_receive_frame(device)
 #endif /* PPP_DEVICE_DEBUG_DROP */
 
-/*
+/**
  * ppp_processdata_enter, prepare to recieve data
  *
- * @param   struct ppp_device *device
- *
- * @return  NULL
- *
+ * @param device  the point of device driver structure, ppp_device structure
  */
 static inline void ppp_processdata_enter(struct ppp_device *device)
 {
@@ -313,13 +291,10 @@ static inline void ppp_processdata_enter(struct ppp_device *device)
 #endif
 }
 
-/*
+/**
  * ppp_processdata_leave, throw ppp device data when ppp connection is closed
  *
- * @param   struct ppp_device *device
- *
- * @return  NULL
- *
+ * @param device  the point of device driver structure, ppp_device structure
  */
 static inline void ppp_processdata_leave(struct ppp_device *device)
 {
@@ -327,14 +302,11 @@ static inline void ppp_processdata_leave(struct ppp_device *device)
     ppp_show_dropbuf(device);
 }
 
-/*
+/**
  * ppp_savebyte, save this data into ppp device buff
  *
- * @param   struct ppp_device   *device
- *          rt_uint8_t          dat
- *
- * @return  NULL
- *
+ * @param   device  the point of device driver structure, ppp_device structure
+ * @param   dat     the character of recieve data
  */
 static inline void ppp_savebyte(struct ppp_device *device, rt_uint8_t dat)
 {
@@ -342,15 +314,12 @@ static inline void ppp_savebyte(struct ppp_device *device, rt_uint8_t dat)
     device->rxbuf[device->rxpos++] = dat;
 }
 
-/*
+/**
  * ppp_recv_processdata, save data from uart, recieve complete ppp frame data
  *
- * @param   struct ppp_device       *device
- *          const rt_uint8_t        *buf
- *          rt_size_t               len
- *
- * @return  NULL
- *
+ * @param   device  the point of device driver structure, ppp_device structure
+ * @param   buf     the address of recieve data from uart
+ * @param   len     the length of recieve data
  */
 static void ppp_recv_processdata(struct ppp_device *device, const rt_uint8_t *buf, rt_size_t len)
 {
@@ -407,14 +376,12 @@ process_dat:
     }
 }
 
-/*
+/**
  * Receive thread , store uart data and transform tcpip stack
  *
- * @param ppp_device *device
+ * @param device    the point of device driver structure, ppp_device structure
  *
- *
- * @return  0: execute successful
- *
+ * @return  RT_EOK  we shouldn't let the recieve thread return data, recieve thread need keepalive all the time
  */
 static int ppp_recv_entry(struct ppp_device *device)
 {
@@ -480,14 +447,14 @@ static int ppp_recv_entry(struct ppp_device *device)
     return RT_EOK;
 }
 
-/*
+/**
  * Creat a thread to creat receive thread function
  *
- * @param ppp_device *device
+ * @param   device      the point of device driver structure, ppp_device structure
  *
- *
- * @return  0: execute successful
- *
+ * @return  RT_EOK      recieve thread create and startup successfully
+ *          -RT_ERROR   create recieve thread successfully
+ *          -RT_ENOMEM  startup recieve thread successfully
  */
 static int ppp_recv_entry_creat(struct ppp_device *device)
 {
@@ -522,11 +489,9 @@ __exit:
 /**
  * ppp device init function,set ops funciton and base config
  *
- * @param dev the pointer of device driver structure
+ * @param device    the point of device driver structure, rt_device structure
  *
- *
- * @return  0: execute successful
- *
+ * @return  RT_EOK
  */
 static rt_err_t ppp_device_init(struct rt_device *device)
 {
@@ -542,14 +507,13 @@ static rt_err_t ppp_device_init(struct rt_device *device)
     return RT_EOK;
 }
 
-/*
+/**
  * initialize ppp device and set callback function
  *
- * @param rt_device_t *device
- *        rt_uint16_t oflag
+ * @param device    the point of device driver structure, rt_device structure
+ * @param oflag     the open flag of rt_device
  *
- * @return  0:  execute successful
- *
+ * @return  the result
  */
 static rt_err_t ppp_device_open(struct rt_device *device, rt_uint16_t oflag)
 {
@@ -642,13 +606,12 @@ __exit:
     return result;
 }
 
-/*
+/**
  * Close ppp device
  *
- * @param rt_device_t   *device
+ * @param device    the point of device driver structure, rt_device structure
  *
- *
- * @return  0: execute successful
+ * @return  RT_EOK
  */
 static rt_err_t ppp_device_close(struct rt_device *device)
 {
@@ -674,14 +637,14 @@ static rt_err_t ppp_device_close(struct rt_device *device)
     return RT_EOK;
 }
 
-/*
- * Control ppp device , access ppp mode or accsee AT mode
+/**
+ * Control ppp device , access ppp mode or accsee AT mode; but not it is useless
  *
- * @param rt_device_t   *device
- *        int           cmd
- *        void          *args
+ * @param device    the point of device driver structure, rt_device structure
+ * @param cmd       the command of device
+ * @param args      the private data of you send
  *
- * @return  0: execute successful
+ * @return  -RT_ENOSYS
  */
 static rt_err_t ppp_device_control(struct rt_device *device,int cmd, void *args)
 {
@@ -690,10 +653,7 @@ static rt_err_t ppp_device_control(struct rt_device *device,int cmd, void *args)
     return -RT_ENOSYS;
 }
 
-/*
- * ppp device ops
- *
- */
+/* ppp device ops */
 #ifdef RT_USING_DEVICE_OPS
 const struct rt_device_ops ppp_device_ops =
 {
@@ -704,13 +664,15 @@ const struct rt_device_ops ppp_device_ops =
 };
 #endif
 
-/*
+/**
  * Register ppp_device into rt_device frame,set ops function to rt_device inferface
  *
- * @param struct ppp_device *ppp_device
+ * @param ppp_device    the point of device driver structure, ppp_device structure
+ * @param dev_name      the name of ppp_device name
+ * @param uart_name     the name of uart name what you used
+ * @param user_data     private data
  *
- * @return  0: execute successful
- *
+ * @return  RT_EOK      ppp_device registered into rt_device frame successfully
  */
 int ppp_device_register(struct ppp_device *ppp_device, const char *dev_name, const char *uart_name, void *user_data)
 {
@@ -753,15 +715,15 @@ int ppp_device_register(struct ppp_device *ppp_device, const char *dev_name, con
     return result;
 }
 
-/*
+/**
  * attach data interface device into ppp device frame
  *
- * @param       struct ppp_device *ppp_device
- *              char *uart_name
- *              void *user_data
- * @return  0: execute successful
- *         -1: error
+ * @param   ppp_device      the point of device driver structure, ppp_device structure
+ * @param   uart_name       the name of uart name what you used
+ * @param   user_data       private data
  *
+ * @return  RT_EOK          execute successful
+ * @return -RT_ERROR        error
  */
 int ppp_device_attach(struct ppp_device *ppp_device, const char *uart_name, void *user_data)
 {
@@ -784,14 +746,13 @@ int ppp_device_attach(struct ppp_device *ppp_device, const char *uart_name, void
     return RT_EOK;
 }
 
-/*
+/**
  * detach data interface device from ppp device frame
  *
- * @param       struct ppp_device *ppp_device
+ * @param   ppp_device      the point of device driver structure, ppp_device structure
  *
- * @return  0: execute successful
- *         -1: error
- *
+ * @return  RT_EOK          execute successful
+ * @return -RT_ERROR        error
  */
 int ppp_device_detach(struct ppp_device *ppp_device)
 {

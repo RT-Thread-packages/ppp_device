@@ -21,13 +21,15 @@
 
 #define CHAT_READ_BUF_MAX 16
 
-// In order to match response, we need a string search algorithm
-// KMP and AC algorithm both are good choice, But we need the code
-// is simple, readable and use lower RAM/ROM.
-// So We use a simplified search algorithm, this alg is like the KMP.
-// Specifically we assume the failure vecotor is [-1, 0, 0, 0, ...]
-// This assuming is not work for all pattern string. Fortunately,
-// it's work  for this scene.
+/**
+* In order to match response, we need a string search algorithm
+* KMP and AC algorithm both are good choice, But we need the code
+* is simple, readable and use lower RAM/ROM.
+* So We use a simplified search algorithm, this alg is like the KMP.
+* Specifically we assume the failure vecotor is [-1, 0, 0, 0, ...]
+* This assuming is not work for all pattern string. Fortunately,
+* it's work  for this scene.
+*/
 
 #define DEFINE_MODEM_RESP_STRDATA_TABLE(id, str) [id] = str
 #define DEFINE_MODEM_RESP_STRLEN_TABLE(id, str)  [id] = (sizeof(str)-1)
@@ -74,14 +76,13 @@ static rt_bool_t resp_matched(rt_uint8_t resp_id, rt_uint8_t state)
     return state == resp_strlen[resp_id];
 }
 
-/*
- * chat_rx_ind , callback function if serial recieve data
+/**
+ * chat_rx_ind, callback function if serial recieve data
  *
- * @param rt_device_t                       device
- *        rt_size_t                         size
+ * @param device the point of device driver structure, uart structure
+ * @param size  the indication callback function need this parameter
  *
- * @return  0   :   successful
- *
+ * @return RT_EOK
  */
 static rt_err_t chat_rx_ind(rt_device_t device, rt_size_t size)
 {
@@ -89,14 +90,16 @@ static rt_err_t chat_rx_ind(rt_device_t device, rt_size_t size)
     return RT_EOK;
 }
 
-/*
- * chat_read_until , waitting for recieve data from serial
+/**
+ * chat_read_until, waitting for recieve data from serial
  *
- * @param struct rt_serial_device           *serial
- *        const struct modem_chat_data      *data
+ * @param serial    the point of device driver structure, uart structure
+ * @param buffer    the buffer is waitting for recieve uart data from ppp
+ * @param size      the max length of CHAT_READ_BUF_MAX
+ * @param stop      the max of tick time
  *
- * @return  0   :   timeout, can't recieve any data
- *          size:   the size of recieve data
+ * @return  >=0:   the length of read data
+ *          <0 :   rt_device_read failed
  */
 static rt_size_t chat_read_until(rt_device_t serial, void *buffer, rt_size_t size, rt_tick_t stop)
 {
@@ -116,13 +119,10 @@ static rt_size_t chat_read_until(rt_device_t serial, void *buffer, rt_size_t siz
     return rt_device_read(serial, 0, buffer, size);
 }
 
-/*
+/**
  * modem_flush_rx , clear data what is in the rx buffer
  *
- * @param struct rt_serial_device           *serial
- *
- * @return  RT_NULL: none
- *
+ * @param serial    the point of device driver structure, uart structure
  */
 static void modem_flush_rx(rt_device_t serial)
 {
@@ -131,14 +131,14 @@ static void modem_flush_rx(rt_device_t serial)
     while (rt_device_read(serial, 0, rdbuf, CHAT_READ_BUF_MAX));
 }
 
-/*
+/**
  * modem_chat_once , send an order to control modem
  *
- * @param struct rt_serial_device           *serial
- *        const struct modem_chat_data      *data
+ * @param serial    the point of device driver structure, uart structure
+ * @param data      the AT command
  *
- * @return  0: execute successful
- *
+ * @return  =0:   modem_chat_once successful
+ *          <0:   modem_chat_once failed
  */
 static rt_err_t modem_chat_once(rt_device_t serial, const struct modem_chat_data *data)
 {
@@ -184,15 +184,15 @@ static rt_err_t modem_chat_once(rt_device_t serial, const struct modem_chat_data
     return -RT_ETIMEOUT;
 }
 
-/*
- * modem_chat_internal , init modem and turn modem into ppp type
+/**
+ * modem_chat_internal , init modem or turn modem into ppp type
  *
- * @param struct rt_serial_device           *serial
- *        const struct modem_chat_data      *data
- *        rt_size_t                         len
+ * @param serial    the point of device driver structure, uart structure
+ * @param data      the AT command, it is the address of chat strcuture, a collection of AT command
+ * @param len       the length of this collection of AT command
  *
- * @return  0: execute successful
- *
+ * @return  =0:   modem_chat_internal successful
+ *          <0:   modem_chat_internal failed
  */
 static rt_err_t modem_chat_internal(rt_device_t serial, const struct modem_chat_data *data, rt_size_t len)
 {
@@ -220,15 +220,15 @@ static rt_err_t modem_chat_internal(rt_device_t serial, const struct modem_chat_
     return err;
 }
 
-/*
- * modem_chat , a function for ppp dailing to network
+/**
+ * modem_chat , a function for ppp dailing to network, it will set rx_indicate
  *
- * @param struct ppp_device                 *device
- *        const struct modem_chat_data      *data
- *        rt_size_t                         len
+ * @param device    the point of device driver structure, uart structure
+ * @param data      the AT command, it is the address of chat strcuture, a collection of AT command
+ * @param len       the length of this collection of AT command
  *
- * @return  0: execute successful
- *
+ * @return  =0:   modem_chat successful
+ *          <0:   modem_chat failed
  */
 rt_err_t modem_chat(rt_device_t serial, const struct modem_chat_data *data, rt_size_t len)
 {
