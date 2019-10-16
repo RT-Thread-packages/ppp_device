@@ -20,7 +20,7 @@ PPP Device 软件包特点如下：
 
 QQ群：749347156 [<传送门>](https://jq.qq.com/?_wv=1027&k=5KcuPGI)
 
-移植文档地址：<[移植文档](docs/Module transplantation.md)>
+移植文档地址：[<移植文档>](./docs/port.md)
 
 ### 1.1 框架图
 

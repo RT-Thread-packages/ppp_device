@@ -10,11 +10,11 @@
 
 *ps : 从 class 文件夹下选择任意一个文件重命名也行*
 
-![code_transplantation_one](.\figures\code_transplantation_one.jpg)
+![code_transplantation_one](./figures/code_transplantation_one.jpg)
 
 在设置引导模块复位命令的时候，需要着重注意 +++ 命令，这里需要查看对应模块的 AT 命令手册；
 
-![code_transplantation_one](.\figures\code_transplantation_two.jpg)
+![code_transplantation_one](./figures/code_transplantation_two.jpg)
 
 手册中明确要求，+++ 命令在命令输入前 1 秒不能有数据输入，在发送 +++ 命令后有 0.5 秒不能有数据输入；
 
@@ -82,7 +82,7 @@ if GetDepend(['PPP_DEVICE_USING_AIR720']):
 
 > env\packages\iot\ppp_device\Kconfig
 
-![code_transplantation_three](.\figures\code_transplantation_three.jpg)
+![code_transplantation_three](./figures/code_transplantation_three.jpg)
 
 在合适的位置添加
 
