@@ -2,23 +2,25 @@
 
 ## 1. 简介
 
-PPP Device 软件包，是 RT-Thread 针对不同模块的 lwIP PPP 功能实现的软件包。它使 GPRS 模块不再需要发送 AT 命令，使用 PPP 方式即可实现网络数据传输。
+PPP Device 软件包，是 RT-Thread 针对不同模块的 lwIP PPP 功能实现的软件包。它使蜂窝模块不再需要发送 AT 命令，使用 PPP 方式即可实现网络数据传输。
 
 PPP Device 软件包特点如下：
 
-- 支持多种 GPRS 模块；
+- 支持多种蜂窝模块；
 - 无缝兼容多种应用层网络协议（HTTP、MQTT、TLS 等）；
 - 支持数据差错检测，提供可靠数据传输；
 
 * 提供 CHAT 方式初始化功能，方便设备移植；
 
-目前 PPP 功能支持 Luat Air720，China mobile M6312,  SIMCOM SIM800 模块，后续会接入更多 GPRS 模块。
+目前 PPP 功能支持 Luat Air720，China mobile M6312,  SIMCOM SIM800 模块，后续会接入更多蜂窝模块。
 
 
 
 对 PPP Device 有疑惑，或者对 PPP Device 感兴趣的开发者欢迎入群详细了解。
 
 QQ群：749347156 [<传送门>](https://jq.qq.com/?_wv=1027&k=5KcuPGI)
+
+移植文档地址：<[移植文档](docs/Module transplantation.md)>
 
 ### 1.1 框架图
 
@@ -35,9 +37,6 @@ QQ群：749347156 [<传送门>](https://jq.qq.com/?_wv=1027&k=5KcuPGI)
 | inc | PPP Device 头文件目录 |
 | sample | PPP 功能示例文件目录 |
 | class | 不同设备针对 PPP 功能的移植适配目录 |
-| class/air720 | Air720 设备针对 PPP 功能的移植目录，实现 PPP 拨号上网 功能 |
-| class/sim800 | Sim800 设备针对 PPP 功能的移植目录，实现 PPP 拨号上网 功能 |
-| class/m6312 | M6312 设备针对 PPP 功能的移植目录，实现 PPP 拨号上网 功能 |
 
 ### 1.3 许可证
 
@@ -54,7 +53,7 @@ ppp_device 软件包遵循 Apache-2.0 许可，详见 LICENSE 文件。
 
 
 ```c
-[*] PPP DEVICE: lwIP PPP porting for different device
+[*] PPP DEVICE: lwIP PPP porting for Cellular Module( 2G/3G/4G )
     [ ]   Enable debug log output
     [ ]   Enbale authorize connect feature
     [*]   Enable lin status detect feature
@@ -174,11 +173,13 @@ msh />ping www.baidu.com
 
 ## 4. 注意事项
 
-* 一般的SIM卡因为只能从运营商网络获取内网地址，所以不能实现服务器相关功能
+* 一般的 SIM 卡因为只能从运营商网络获取内网地址，所以一般不能实现服务器相关功能
+* 特殊的 SIM 卡可以从运营商获取公网地址，可是实现服务器功能
 * 目前只支持一个设备通过 PPP 连接网络
 * 建议不要打开 RT_DEVICE_FLAG_DMA_TX
 * 如果网络环境不好，建议关闭 Enable lin status detect feature 选项，或调整成大一点的时间
 * RT_LWIP_TCPTHREAD_STACKSIZE 需要配置为不小于 2048，及时在 network 组件中修改
+* 不要忘记打开串口
 
 ## 5. 联系方式
 
