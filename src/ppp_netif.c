@@ -94,6 +94,7 @@ rt_err_t ppp_netdev_refresh(struct netif *ppp_netif)
 
     rt_strncpy(name, ppp_netif->name, LWIP_NETIF_NAME_LEN);
     netdev = netdev_get_by_name(name);
+    netdev->mtu = ppp_netif->mtu;
 
     /* sometime we can get second dns server but first dns server is empty, wo need do something to fix it */
     if (!ip_addr_isany(dns_getserver(0)))
