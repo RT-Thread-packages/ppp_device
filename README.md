@@ -12,7 +12,7 @@ PPP Device 软件包特点如下：
 
 * 提供 CHAT 方式初始化功能，方便设备移植；
 
-目前 PPP 功能支持 Luat Air720，China mobile M6312,  SIMCOM SIM800 模块，后续会接入更多蜂窝模块。
+目前 PPP 功能支持 Luat Air720，Quectel EC20，China mobile M6312,  SIMCOM SIM800 模块，后续会接入更多蜂窝模块。
 
 
 
@@ -56,8 +56,8 @@ ppp_device 软件包遵循 Apache-2.0 许可，详见 LICENSE 文件。
 [*] PPP DEVICE: lwIP PPP porting for Cellular Module( 2G/3G/4G )
     [ ]   Enable debug log output
     [ ]   Enbale authorize connect feature
-    [*]   Enable lin status detect feature
-    (1)     Link status detecct timeout
+    [*]   Enable link status detect feature
+    (10)     Link status detecct timeout
           Select Internet Service Provider (china mobile)  --->
           Select modem type (Luat Air720)  --->
     [*]    Enable ppp device sample
@@ -180,6 +180,7 @@ msh />ping www.baidu.com
 * 如果网络环境不好，建议关闭 Enable lin status detect feature 选项，或调整成大一点的时间
 * RT_LWIP_TCPTHREAD_STACKSIZE 需要配置为不小于 2048，及时在 network 组件中修改
 * 不要忘记打开串口
+* 对于开启模块电源控制引脚的开发者，要注意模块的启动时间；通常模块启动时间较长，这时会出现长时间拨号不成功的问题，一定要注意模块的启动时间，避免造成使用上的一些障碍。
 
 ## 5. 联系方式
 
