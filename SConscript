@@ -9,6 +9,10 @@ src += Glob('samples/ppp_sample.c')
 if GetDepend(['PPP_DEVICE_USING_AIR720']):
     src += Glob('class/ppp_device_air720.c')
 
+# EC20
+if GetDepend(['PPP_DEVICE_USING_EC20']):
+    src += Glob('class/ppp_device_ec20.c')
+
 # M6312
 if GetDepend(['PPP_DEVICE_USING_M6312']):
     src += Glob('class/ppp_device_m6312.c')
