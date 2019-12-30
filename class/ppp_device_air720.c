@@ -90,7 +90,7 @@ int ppp_air720_register(void)
     {
         rt_pin_mode(ppp_device->power_pin, PIN_MODE_OUTPUT);
         rt_pin_write(ppp_device->power_pin, AIR720_POWER_ON);
-        rt_thread_delay(AIR720_WARTING_TIME_BASE);
+        rt_thread_mdelay(AIR720_WARTING_TIME_BASE);
     }
     ppp_device->ops = &air720_ops;
 

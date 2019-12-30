@@ -50,9 +50,9 @@ static rt_err_t ppp_ec20_prepare(struct ppp_device *device)
     if (device->power_pin >= 0)
     {
         rt_pin_write(device->power_pin, EC20_POWER_OFF);
-        rt_thread_delay(EC20_WARTING_TIME_BASE / 20);
+        rt_thread_mdelay(EC20_WARTING_TIME_BASE / 20);
         rt_pin_write(device->power_pin, EC20_POWER_ON);
-        rt_thread_delay(EC20_WARTING_TIME_BASE / 2 + EC20_WARTING_TIME_BASE);
+        rt_thread_mdelay(EC20_WARTING_TIME_BASE / 2 + EC20_WARTING_TIME_BASE);
     }
     else
     {
@@ -92,7 +92,7 @@ int ppp_ec20_register(void)
     {
         rt_pin_mode(ppp_device->power_pin, PIN_MODE_OUTPUT);
         rt_pin_write(ppp_device->power_pin, EC20_POWER_ON);
-        rt_thread_delay(EC20_WARTING_TIME_BASE / 2 + EC20_WARTING_TIME_BASE);
+        rt_thread_mdelay(EC20_WARTING_TIME_BASE / 2 + EC20_WARTING_TIME_BASE);
     }
     ppp_device->ops = &ec20_ops;
 
