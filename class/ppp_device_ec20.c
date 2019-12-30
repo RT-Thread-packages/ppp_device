@@ -12,7 +12,7 @@
 #include <ppp_chat.h>
 #include <rtdevice.h>
 
-#define DBG_TAG    "ppp.air720"
+#define DBG_TAG    "ppp.ec20"
 
 #ifdef PPP_DEVICE_DEBUG
 #define DBG_LVL   DBG_LOG
@@ -21,13 +21,15 @@
 #endif
 #include <rtdbg.h>
 
-#define AIR720_POWER_ON  PIN_HIGH
-#define AIR720_POWER_OFF PIN_LOW
-#ifndef AIR720_POWER_PIN
-#define AIR720_POWER_PIN -1
+
+#define EC20_POWER_ON  PIN_LOW
+#define EC20_POWER_OFF PIN_HIGH
+#ifndef EC20_POWER_PIN
+#include <drv_gpio.h>
+#define EC20_POWER_PIN GET_PIN(A, 11)
 #endif
 
-#define AIR720_WARTING_TIME_BASE 2000
+#define EC20_WARTING_TIME_BASE 2000
 
 static const struct modem_chat_data rst_mcd[] =
 {
@@ -43,14 +45,14 @@ static const struct modem_chat_data mcd[] =
     {PPP_DAIL_CMD,   MODEM_CHAT_RESP_CONNECT,         1, 30, RT_FALSE},
 };
 
-static rt_err_t ppp_air720_prepare(struct ppp_device *device)
+static rt_err_t ppp_ec20_prepare(struct ppp_device *device)
 {
     if (device->power_pin >= 0)
     {
-        rt_pin_write(device->power_pin, AIR720_POWER_OFF);
-        rt_thread_mdelay(AIR720_WARTING_TIME_BASE / 20);
-        rt_pin_write(device->power_pin, AIR720_POWER_ON);
-        rt_thread_mdelay(AIR720_WARTING_TIME_BASE);
+        rt_pin_write(device->power_pin, EC20_POWER_OFF);
+        rt_thread_delay(EC20_WARTING_TIME_BASE / 20);
+        rt_pin_write(device->power_pin, EC20_POWER_ON);
+        rt_thread_delay(EC20_WARTING_TIME_BASE / 2 + EC20_WARTING_TIME_BASE);
     }
     else
     {
@@ -62,40 +64,40 @@ static rt_err_t ppp_air720_prepare(struct ppp_device *device)
     return modem_chat(device->uart, mcd, sizeof(mcd) / sizeof(mcd[0]));
 }
 
-/* ppp_air720_ops for ppp_device_ops , a common interface */
-static struct ppp_device_ops air720_ops =
+/* ppp_ec20_ops for ppp_device_ops , a common interface */
+static struct ppp_device_ops ec20_ops =
 {
-    .prepare = ppp_air720_prepare,
+    .prepare = ppp_ec20_prepare,
 };
 
 /**
- * register air720 into ppp_device
+ * register ec20 into ppp_device
  *
  * @return  =0:   ppp_device register successfully
  *          <0:   ppp_device register failed
  */
-int ppp_air720_register(void)
+int ppp_ec20_register(void)
 {
     struct ppp_device *ppp_device = RT_NULL;
 
     ppp_device = rt_malloc(sizeof(struct ppp_device));
     if(ppp_device == RT_NULL)
     {
-        LOG_E("No memory for air720 ppp_device.");
+        LOG_E("No memory for ec20 ppp_device.");
         return -RT_ENOMEM;
     }
 
-    ppp_device->power_pin = AIR720_POWER_PIN;
+    ppp_device->power_pin = EC20_POWER_PIN;
     if (ppp_device->power_pin >= 0)
     {
         rt_pin_mode(ppp_device->power_pin, PIN_MODE_OUTPUT);
-        rt_pin_write(ppp_device->power_pin, AIR720_POWER_ON);
-        rt_thread_delay(AIR720_WARTING_TIME_BASE);
+        rt_pin_write(ppp_device->power_pin, EC20_POWER_ON);
+        rt_thread_delay(EC20_WARTING_TIME_BASE / 2 + EC20_WARTING_TIME_BASE);
     }
-    ppp_device->ops = &air720_ops;
+    ppp_device->ops = &ec20_ops;
 
-    LOG_D("ppp air720 is registering ppp_device");
+    LOG_D("ppp ec20 is registering ppp_device");
 
     return ppp_device_register(ppp_device, PPP_DEVICE_NAME, RT_NULL, RT_NULL);
 }
-INIT_COMPONENT_EXPORT(ppp_air720_register);
+INIT_COMPONENT_EXPORT(ppp_ec20_register);
