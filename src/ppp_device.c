@@ -35,6 +35,9 @@ enum
 #define PPP_RECONNECT_TIME       2500
 #define PPP_RECV_READ_MAX        32
 
+#define PPP_RECEIVE_THREAD_STACK_SIZE 768
+#define PPP_RECEIVE_THREAD_PRIORITY   7
+
 
 #define PPP_EVENT_RX_NOTIFY 1   // serial incoming a byte
 #define PPP_EVENT_LOST      2   // PPP connection is lost
@@ -56,10 +59,9 @@ static struct ppp_device *_g_ppp_device = RT_NULL;
 #ifdef PPP_DEVICE_DEBUG
 static void ppp_debug_hexdump(const void *data, size_t len)
 {
-    const size_t maxlen = 16;
     rt_uint32_t offset = 0;
     size_t curlen = 0, i = 0;
-    char line[maxlen * 4 + 3] = {0};
+    char line[16 * 4 + 3] = {0};
     char *p = RT_NULL;
     const unsigned char *src = data;
 
@@ -464,8 +466,8 @@ static int ppp_recv_entry_creat(struct ppp_device *device)
     device->recv_tid = rt_thread_create("ppp_recv",
                                         (void (*)(void *parameter))ppp_recv_entry,
                                         device,
-                                        768,
-                                        8,
+                                        PPP_RECEIVE_THREAD_STACK_SIZE,
+                                        PPP_RECEIVE_THREAD_PRIORITY,
                                         20);
     if (device->recv_tid == RT_NULL)
     {
