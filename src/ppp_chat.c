@@ -180,7 +180,7 @@ static rt_err_t modem_chat_once(rt_device_t serial, const struct modem_chat_data
                         return RT_EOK;
 
                     LOG_W(CHAT_DATA_FMT" not matched, got: %s", CHAT_DATA_STR(data), resp2str(resp));
-                    continue;
+                    return -RT_ERROR;
                 }
             }
         }
@@ -253,7 +253,7 @@ rt_err_t modem_chat(rt_device_t serial, const struct modem_chat_data *data, rt_s
     }
 
     serial->rx_indicate = old_rx_ind;
-#ifndef PKG_USING_CMUX
+#ifdef PKG_USING_CMUX
     LOG_D("(%s) has control by cmux.", serial->parent.name);
 #else
     LOG_D("(%s) has control by ppp_device.", serial->parent.name);

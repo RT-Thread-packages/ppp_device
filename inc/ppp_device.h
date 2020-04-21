@@ -24,6 +24,9 @@
 #endif
 
 #define PPP_DAIL_CMD         "ATD*99#"                                  /* common dailing cmd */
+#ifndef USING_PUBLIC_APN
+#define PPP_APN_CMD          "AT+CGDCONT=1,\"IP\","PPP_PRIVATE_APN
+#else
 #ifdef  PPP_APN_CMCC
 #define PPP_APN_CMD          "AT+CGDCONT=1,\"IP\",\"CMNET\""            /* China Mobile Communication Company */
 #endif
@@ -32,6 +35,7 @@
 #endif
 #ifdef  PPP_APN_CTCC
 #define PPP_APN_CMD          "AT+CGDCONT=1,\"IP\",\"CTNET\""            /* China Telecom Communication Company */
+#endif
 #endif
 #define PPP_CTL_GET_CSQ      1
 #define PPP_CTL_GET_IEMI     2
