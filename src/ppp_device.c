@@ -586,10 +586,10 @@ static rt_err_t ppp_device_open(struct rt_device *device, rt_uint16_t oflag)
     ppp_set_usepeerdns(ppp_device->pcb, 1);
     LOG_D("ppp_set_usepeerdns has set a dns number.");
 
-#ifdef USING_PRIVATE_APN
+#ifdef PPP_USING_PRIVATE_APN
     /* set authorize */
  #if PAP_SUPPORT
-     ppp_set_auth(ppp_device->pcb , PPPAUTHTYPE_PAP, PRIVATE_APN_ACCOUNT, PRIVATE_APN_PASSWORD);
+     ppp_set_auth(ppp_device->pcb , PPPAUTHTYPE_PAP, PPP_PRIVATE_APN_ACCOUNT, PPP_PRIVATE_APN_PASSWORD);
  #elif CHAP_SUPPORT
      ppp_set_auth(ppp_device->pcb, PPPAUTHTYPE_CHAP, ppp_device->config.user_name, ppp_device->config.user_name);
  #else
