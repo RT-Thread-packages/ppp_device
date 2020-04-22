@@ -46,8 +46,8 @@
 #define PPP_DROP_BUF        PPP_FRAME_MAX
 
 
-#define PPP_DEVICE_SW_VERSION           "1.1.0"
-#define PPP_DEVICE_SW_VERSION_NUM       0x10100
+#define PPP_DEVICE_SW_VERSION           "1.1.1"
+#define PPP_DEVICE_SW_VERSION_NUM       0x10101
 
 enum ppp_trans_type
 {
