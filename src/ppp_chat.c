@@ -9,7 +9,12 @@
  */
 
 #include "ppp_chat.h"
+
+#ifndef PKG_USING_CMUX
 #define DBG_TAG    "ppp.chat"
+#else
+#define DBG_TAG    "chat"
+#endif
 
 #ifdef PPP_DEVICE_DEBUG
 #define DBG_LVL   DBG_LOG
@@ -248,6 +253,10 @@ rt_err_t modem_chat(rt_device_t serial, const struct modem_chat_data *data, rt_s
     }
 
     serial->rx_indicate = old_rx_ind;
+#ifdef PKG_USING_CMUX
+    LOG_D("(%s) has control by cmux.", serial->parent.name);
+#else
     LOG_D("(%s) has control by ppp_device.", serial->parent.name);
+#endif
     return err;
 }

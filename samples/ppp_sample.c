@@ -39,7 +39,9 @@ int ppp_sample_start(void)
     }
     return RT_EOK;
 }
+#ifndef PKG_USING_CMUX
 INIT_APP_EXPORT(ppp_sample_start);
+#endif
 MSH_CMD_EXPORT_ALIAS(ppp_sample_start, ppp_start, a sample of ppp device  for dailing to network);
 
 /* close ppp link ,turn off modem form network */

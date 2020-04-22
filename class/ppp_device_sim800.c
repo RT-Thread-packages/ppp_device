@@ -29,6 +29,7 @@
 
 #define SIM800_WARTING_TIME_BASE 500
 
+#ifndef PKG_USING_CMUX
 static const struct modem_chat_data rst_mcd[] =
 {
     {"+++",          MODEM_CHAT_RESP_NOT_NEED,        30, 1, RT_TRUE},
@@ -42,9 +43,18 @@ static const struct modem_chat_data mcd[] =
     {PPP_APN_CMD,    MODEM_CHAT_RESP_OK,              1,  5, RT_FALSE},
     {PPP_DAIL_CMD,   MODEM_CHAT_RESP_CONNECT,         1, 30, RT_FALSE},
 };
+#else
+static const struct modem_chat_data mcd[] =
+{
+    {"AT",           MODEM_CHAT_RESP_NOT_NEED,        10, 1, RT_FALSE},
+    {PPP_APN_CMD,    MODEM_CHAT_RESP_NOT_NEED,        1,  5, RT_FALSE},
+    {PPP_DAIL_CMD,   MODEM_CHAT_RESP_NOT_NEED,        1, 30, RT_FALSE},
+};
+#endif
 
 static rt_err_t ppp_sim800_prepare(struct ppp_device *device)
 {
+#ifndef PKG_USING_CMUX
     if (device->power_pin >= 0)
     {
         rt_pin_write(device->power_pin, SIM800_POWER_OFF);
@@ -58,6 +68,7 @@ static rt_err_t ppp_sim800_prepare(struct ppp_device *device)
         if (err)
             return err;
     }
+#endif
     return modem_chat(device->uart, mcd, sizeof(mcd) / sizeof(mcd[0]));
 }
 

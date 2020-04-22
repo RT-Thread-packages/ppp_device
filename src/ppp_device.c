@@ -22,6 +22,13 @@
 
 #include <rtdbg.h>
 
+#ifdef PPP_DEVICE_DEBUG
+#define PPP_THREAD_STACK_SIZE 2048
+#else
+#define PPP_THREAD_STACK_SIZE 768
+#endif
+#define PPP_THREAD_PRIORITY   9
+
 enum
 {
     PPP_STATE_PREPARE,
@@ -56,10 +63,10 @@ static struct ppp_device *_g_ppp_device = RT_NULL;
 #ifdef PPP_DEVICE_DEBUG
 static void ppp_debug_hexdump(const void *data, size_t len)
 {
-    const size_t maxlen = 16;
+    rt_uint16_t maxlen = 16;
     rt_uint32_t offset = 0;
     size_t curlen = 0, i = 0;
-    char line[maxlen * 4 + 3] = {0};
+    char line[16 * 4 + 3] = {0};
     char *p = RT_NULL;
     const unsigned char *src = data;
 
@@ -464,8 +471,8 @@ static int ppp_recv_entry_creat(struct ppp_device *device)
     device->recv_tid = rt_thread_create("ppp_recv",
                                         (void (*)(void *parameter))ppp_recv_entry,
                                         device,
-                                        768,
-                                        8,
+                                        PPP_THREAD_STACK_SIZE,
+                                        PPP_THREAD_PRIORITY,
                                         20);
     if (device->recv_tid == RT_NULL)
     {
@@ -579,10 +586,10 @@ static rt_err_t ppp_device_open(struct rt_device *device, rt_uint16_t oflag)
     ppp_set_usepeerdns(ppp_device->pcb, 1);
     LOG_D("ppp_set_usepeerdns has set a dns number.");
 
-#ifdef USING_PPP_AUTHORIZE
+#ifdef USING_PRIVATE_APN
     /* set authorize */
  #if PAP_SUPPORT
-     ppp_set_auth(ppp_device->pcb , PPPAUTHTYPE_PAP, ppp_device->config.user_name, ppp_device->config.user_name);
+     ppp_set_auth(ppp_device->pcb , PPPAUTHTYPE_PAP, PRIVATE_APN_ACCOUNT, PRIVATE_APN_PASSWORD);
  #elif CHAP_SUPPORT
      ppp_set_auth(ppp_device->pcb, PPPAUTHTYPE_CHAP, ppp_device->config.user_name, ppp_device->config.user_name);
  #else
