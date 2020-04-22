@@ -24,7 +24,7 @@
 #endif
 
 #define PPP_DAIL_CMD         "ATD*99#"                                  /* common dailing cmd */
-#ifndef USING_PUBLIC_APN
+#ifndef PPP_USING_PUBLIC_APN
 #define PPP_APN_CMD          "AT+CGDCONT=1,\"IP\","PPP_PRIVATE_APN
 #else
 #ifdef  PPP_APN_CMCC
@@ -46,8 +46,8 @@
 #define PPP_DROP_BUF        PPP_FRAME_MAX
 
 
-#define PPP_DEVICE_SW_VERSION           "1.1.1"
-#define PPP_DEVICE_SW_VERSION_NUM       0x10101
+#define PPP_DEVICE_SW_VERSION           "1.1.0"
+#define PPP_DEVICE_SW_VERSION_NUM       0x10100
 
 enum ppp_trans_type
 {
