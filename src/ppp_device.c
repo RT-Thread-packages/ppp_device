@@ -25,23 +25,17 @@
 #ifdef PPP_DEVICE_DEBUG
 #define PPP_THREAD_STACK_SIZE 2048
 #else
-#define PPP_THREAD_STACK_SIZE 768
+#define PPP_THREAD_STACK_SIZE 1024
 #endif
 #define PPP_THREAD_PRIORITY   9
 
 enum
 {
     PPP_STATE_PREPARE,
-    PPP_STATE_WAIT_HEAD,
     PPP_STATE_RECV_DATA,
 };
 
-#define PPP_DATA_BEGIN_END       0x7e
-#define DATA_EFFECTIVE_FLAG      0x00
-#define RECON_ERR_COUNTS         0x02
-#define PPP_RECONNECT_TIME       2500
 #define PPP_RECV_READ_MAX        32
-
 
 #define PPP_EVENT_RX_NOTIFY 1   // serial incoming a byte
 #define PPP_EVENT_LOST      2   // PPP connection is lost
@@ -206,184 +200,6 @@ static void ppp_status_changed(ppp_pcb *pcb, int err_code, void *ctx)
 }
 
 /**
- * prepare for starting recieve ppp frame, clear recieve buff and set ppp device state
- *
- * @param device  the point of device driver structure, ppp_device structure
- */
-static inline void ppp_start_receive_frame(struct ppp_device *device)
-{
-    device->rxpos = 0;
-    device->state = PPP_STATE_WAIT_HEAD;
-}
-
-#ifdef PPP_DEVICE_DEBUG_DROP
-/**
- * ppp_show_dropbuf, printf the data whom ppp devcie drop out, and increase drop data conut
- *
- * @param device  the point of device driver structure, ppp_device structure
- */
-static inline void ppp_show_dropbuf(struct ppp_device *device)
-{
-    if (!device->droppos)
-        return;
-    LOG_D("DROP: ");
-    ppp_debug_hexdump(device->dropbuf, device->droppos);
-    device->dropcnt += device->droppos;
-    device->droppos = 0;
-}
-
-/**
- * ppp_show_rxbuf_as_drop, printf the data whom ppp devcie drop out, and increase drop data conut
- *
- * @param device  the point of device driver structure, ppp_device structure
- */
-static inline void ppp_show_rxbuf_as_drop(struct ppp_device *device)
-{
-    if (!device->rxpos)
-        return;
-    LOG_D("DROP: ");
-    ppp_debug_hexdump(device->rxbuf, device->rxpos);
-    device->dropcnt += device->rxpos;
-    device->rxpos = 0;
-}
-
-/**
- * ppp_rxbuf_drop, printf the data whom ppp devcie drop out
- *
- * @param device  the point of device driver structure, ppp_device structure
- */
-static inline void ppp_rxbuf_drop(struct ppp_device *device)
-{
-    /* if we have no enough drop-buffer, we should display and clear drop-buffer */
-    if (PPP_DROP_BUF - device->droppos < device->rxpos)
-    {
-        ppp_show_dropbuf(device);
-        /* if our drop-buffer size less than or equal current valid size of rx-buffer,
-            we should display and clear rx-buffer */
-        if (PPP_DROP_BUF <= device->rxpos)
-        {
-            ppp_show_rxbuf_as_drop(device);
-        }
-    }
-
-    if (device->rxpos)
-    {
-        rt_memcpy(&device->dropbuf[device->droppos], device->rxbuf, device->rxpos);
-        device->droppos += device->rxpos;
-        device->rxpos = 0;
-
-        if (device->droppos == PPP_DROP_BUF)
-        {
-            ppp_show_dropbuf(device);
-        }
-    }
-
-    ppp_start_receive_frame(device);
-}
-#else
-static inline void ppp_show_dropbuf(struct ppp_device *device) {}
-#define ppp_rxbuf_drop(device) ppp_start_receive_frame(device)
-#endif /* PPP_DEVICE_DEBUG_DROP */
-
-/**
- * ppp_processdata_enter, prepare to recieve data
- *
- * @param device  the point of device driver structure, ppp_device structure
- */
-static inline void ppp_processdata_enter(struct ppp_device *device)
-{
-    ppp_start_receive_frame(device);
-#ifdef PPP_DEVICE_DEBUG_DROP
-    device->droppos = 0;
-#endif
-}
-
-/**
- * ppp_processdata_leave, throw ppp device data when ppp connection is closed
- *
- * @param device  the point of device driver structure, ppp_device structure
- */
-static inline void ppp_processdata_leave(struct ppp_device *device)
-{
-    ppp_rxbuf_drop(device);
-    ppp_show_dropbuf(device);
-}
-
-/**
- * ppp_savebyte, save this data into ppp device buff
- *
- * @param   device  the point of device driver structure, ppp_device structure
- * @param   dat     the character of recieve data
- */
-static inline void ppp_savebyte(struct ppp_device *device, rt_uint8_t dat)
-{
-    RT_ASSERT(device->rxpos < sizeof(device->rxbuf));
-    device->rxbuf[device->rxpos++] = dat;
-}
-
-/**
- * ppp_recv_processdata, save data from uart, recieve complete ppp frame data
- *
- * @param   device  the point of device driver structure, ppp_device structure
- * @param   buf     the address of recieve data from uart
- * @param   len     the length of recieve data
- */
-static void ppp_recv_processdata(struct ppp_device *device, const rt_uint8_t *buf, rt_size_t len)
-{
-    rt_uint8_t dat;
-
-    while (len--)
-    {
-        dat = *buf++;
-
-process_dat:
-        switch (device->state)
-        {
-        case PPP_STATE_WAIT_HEAD:
-            ppp_savebyte(device, dat);
-            if (dat == PPP_DATA_BEGIN_END)              /* if recieve 0x7e */
-            {
-                ppp_show_dropbuf(device);
-                device->state = PPP_STATE_RECV_DATA;    /* begin recieve the second data */
-            }
-            else
-            {
-                ppp_rxbuf_drop(device);
-            }
-            break;
-        case PPP_STATE_RECV_DATA:
-            if (dat == PPP_DATA_BEGIN_END && device->rxpos == 1)    /* if we recieve 0x7e when this data is the second data */
-            {
-                LOG_D("found continuous 0x7e");
-                // start receive a new frame
-                ppp_rxbuf_drop(device);                 /* throw this data, because 0x7e is the begin of ppp frame, the second data shouldn't been 0x7e */
-                goto process_dat;
-            }
-            ppp_savebyte(device, dat);
-            if (dat == PPP_DATA_BEGIN_END)      /* the end of ppp frame */
-            {
-#ifdef PPP_DEVICE_DEBUG_RX
-                LOG_D("RX:");
-                ppp_debug_hexdump(device->rxbuf, device->rxpos);
-#endif
-                rt_enter_critical();
-                pppos_input_tcpip(device->pcb, (u8_t *)device->rxbuf, device->rxpos);
-                rt_exit_critical();
-                ppp_start_receive_frame(device);
-            }
-            break;
-        default:
-            LOG_E("BUG: unexpect state: %u", (unsigned int)device->state);
-        }
-        if (device->rxpos == sizeof(device->rxbuf))
-        {
-            LOG_W("receive ppp frame is lagger than %u", (unsigned int)sizeof(device->rxbuf));
-            ppp_rxbuf_drop(device);
-        }
-    }
-}
-
-/**
  * Receive thread , store uart data and transform tcpip stack
  *
  * @param device    the point of device driver structure, ppp_device structure
@@ -407,7 +223,10 @@ static int ppp_recv_entry(struct ppp_device *device)
         {
             if (!device->ops->prepare || device->ops->prepare(device) == RT_EOK)
             {
-                ppp_processdata_enter(device);
+                /* throw away the dirty data in the uart buffer */
+                rt_device_read(device->uart, 0, buffer, PPP_RECV_READ_MAX);
+
+                device->state = PPP_STATE_RECV_DATA;
                 pppapi_connect(device->pcb, 0);
             }
             else
@@ -426,7 +245,16 @@ static int ppp_recv_entry(struct ppp_device *device)
             {
                 len = rt_device_read(device->uart, 0, buffer, PPP_RECV_READ_MAX);
                 if (len)
-                    ppp_recv_processdata(device, buffer, len);
+                {
+                    pppos_input_tcpip(device->pcb, (u8_t *)buffer, len);
+                }
+#ifdef PPP_DEVICE_DEBUG_RX
+                LOG_D("RX:");
+                ppp_debug_hexdump(buffer, len);
+#else
+                /* slow down the speed of recieve, transfer more data to ppp in once. */
+                rt_thread_mdelay(1);
+#endif
             } while (len);
         }
 
@@ -439,7 +267,6 @@ static int ppp_recv_entry(struct ppp_device *device)
 
         if (event & PPP_EVENT_LOST)
         {
-            ppp_processdata_leave(device);
             if (closing)
             {
                 LOG_W("ppp closing success");
@@ -624,7 +451,7 @@ static rt_err_t ppp_device_close(struct rt_device *device)
 {
     rt_uint32_t event;
     RT_ASSERT(device != RT_NULL);
-	extern void ppp_netdev_del(struct netif *ppp_netif);
+    extern void ppp_netdev_del(struct netif *ppp_netif);
 
     struct ppp_device *ppp_device = (struct ppp_device *)device;
     RT_ASSERT(ppp_device != RT_NULL);
