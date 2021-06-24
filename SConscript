@@ -21,6 +21,10 @@ if GetDepend(['PPP_DEVICE_USING_M6312']):
 if GetDepend(['PPP_DEVICE_USING_SIM800']):
     src += Glob('class/ppp_device_sim800.c')
 
+# ML305
+if GetDepend(['PPP_DEVICE_USING_ML305']):
+    src += Glob('class/ppp_device_ml305.c')
+    
 group = DefineGroup('ppp_device', src, depend = ['PKG_USING_PPP_DEVICE'], CPPPATH = path)
 
 Return('group')
