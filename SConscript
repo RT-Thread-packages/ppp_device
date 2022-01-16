@@ -4,7 +4,7 @@ cwd = GetCurrentDir()
 path = [cwd + '/inc']
 src  = Glob('src/*.c')
 if GetDepend(['PPP_DEVICE_SAMPLE']):
-	src += Glob('samples/ppp_sample.c')
+    src += Glob('samples/ppp_sample.c')
 
 # Air720
 if GetDepend(['PPP_DEVICE_USING_AIR720']):
