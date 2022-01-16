@@ -7,6 +7,7 @@
  * Date           Author          Notes
  * 2019-08-15     xiangxistu      the first version
  * 2019-10-01     xiaofan         rewrite ppp_recv thread
+ * 2022-01-16     Jianjia Ma      implement timeout for continuous data
  */
 
 #include <ppp_device.h>
@@ -25,7 +26,7 @@
 #ifdef PPP_DEVICE_DEBUG
 #define PPP_THREAD_STACK_SIZE 2048
 #else
-#define PPP_THREAD_STACK_SIZE 1024
+#define PPP_THREAD_STACK_SIZE 1280
 #endif
 #define PPP_THREAD_PRIORITY   9
 
@@ -35,7 +36,7 @@ enum
     PPP_STATE_RECV_DATA,
 };
 
-#define PPP_RECV_READ_MAX        32
+#define PPP_RECV_READ_MAX        128
 
 #define PPP_EVENT_RX_NOTIFY 1   // serial incoming a byte
 #define PPP_EVENT_LOST      2   // PPP connection is lost
@@ -210,6 +211,8 @@ static int ppp_recv_entry(struct ppp_device *device)
 {
     const rt_uint32_t interested_event = PPP_EVENT_RX_NOTIFY | PPP_EVENT_LOST | PPP_EVENT_CLOSE_REQ;
     rt_uint32_t event;
+    rt_tick_t last_recv_tick;
+    rt_size_t rlen;
     rt_size_t len;
     rt_uint8_t buffer[PPP_RECV_READ_MAX];
     rt_bool_t closing = RT_FALSE;
@@ -241,18 +244,29 @@ static int ppp_recv_entry(struct ppp_device *device)
 
         if (event & PPP_EVENT_RX_NOTIFY)
         {
+            len = 0;
+            rlen = 0;
+            last_recv_tick = rt_tick_get_millisecond();
             do
             {
-                len = rt_device_read(device->uart, 0, buffer, PPP_RECV_READ_MAX);
-                if (len)
+                rlen = rt_device_read(device->uart, 0, &buffer[len], PPP_RECV_READ_MAX - len);
+                len += rlen;
+                if(rlen)
+                {
+                    last_recv_tick = rt_tick_get_millisecond();
+                }
+                /* wait until buffer full or no more data receiving for 1ms */
+                if (len >= PPP_RECV_READ_MAX || rt_tick_get_millisecond() - last_recv_tick >= 1)
                 {
                     pppos_input_tcpip(device->pcb, (u8_t *)buffer, len);
+                    len = 0;
                 }
+
 #ifdef PPP_DEVICE_DEBUG_RX
                 LOG_D("RX:");
                 ppp_debug_hexdump(buffer, len);
 #else
-                /* slow down the speed of recieve, transfer more data to ppp in once. */
+                /* slow down the speed of receive, transfer more data to ppp in once. */
                 rt_thread_mdelay(1);
 #endif
             } while (len);
