@@ -13,6 +13,10 @@
 #include <ppp_device.h>
 #include <ppp_netif.h>
 
+#ifdef RT_USING_NETDEV
+#include <netdev.h>
+#endif
+
 #define DBG_TAG    "ppp.dev"
 
 #ifdef PPP_DEVICE_DEBUG
@@ -23,11 +27,7 @@
 
 #include <rtdbg.h>
 
-#ifdef PPP_DEVICE_DEBUG
-#define PPP_THREAD_STACK_SIZE 2048
-#else
-#define PPP_THREAD_STACK_SIZE 1280
-#endif
+#define PPP_THREAD_STACK_SIZE (PPP_RECV_READ_MAX + 2048)
 #define PPP_THREAD_PRIORITY   9
 
 enum
@@ -36,7 +36,9 @@ enum
     PPP_STATE_RECV_DATA,
 };
 
-#define PPP_RECV_READ_MAX        128
+#ifndef PPP_RECV_READ_MAX
+#define PPP_RECV_READ_MAX        2048
+#endif
 
 #define PPP_EVENT_RX_NOTIFY 1   // serial incoming a byte
 #define PPP_EVENT_LOST      2   // PPP connection is lost
@@ -48,48 +50,6 @@ enum
 #endif
 
 static struct ppp_device *_g_ppp_device = RT_NULL;
-
-/**
- * dump ppp data according to hex format,you can see data what you recieve , send, and ppp_device dorp out
- *
- * @param data      the data what you want to dump out
- * @param len       the length of those data
- */
-#ifdef PPP_DEVICE_DEBUG
-static void ppp_debug_hexdump(const void *data, size_t len)
-{
-    rt_uint16_t maxlen = 16;
-    rt_uint32_t offset = 0;
-    size_t curlen = 0, i = 0;
-    char line[16 * 4 + 3] = {0};
-    char *p = RT_NULL;
-    const unsigned char *src = data;
-
-    while (len > 0)
-    {
-        curlen = len < maxlen ? len : maxlen;
-        p = line;
-        for (i = 0; i < curlen; i++)
-        {
-            rt_sprintf(p, "%02x ", (unsigned char)src[i]);
-            p += 3;
-        }
-        memset(p, ' ', (maxlen - curlen) * 3);
-        p += (maxlen - curlen) * 3;
-        *p++ = '|';
-        *p++ = ' ';
-        for (i = 0; i < curlen; i++)
-        {
-            *p++ = (0x20 < src[i] && src[i] < 0x7e) ? src[i] : '.';
-        }
-        *p++ = '\0';
-        LOG_D("[%04x] %s", offset, line);
-        len -= curlen;
-        src += curlen;
-        offset += curlen;
-    }
-}
-#endif
 
 /**
  * Receive callback function , send PPP_EVENT_RX_NOTIFY event when uart acquire data
@@ -131,8 +91,7 @@ static uint32_t ppp_data_send(ppp_pcb *pcb, uint8_t *data, uint32_t len, void *p
         return 0;
 
 #ifdef PPP_DEVICE_DEBUG_TX
-    LOG_D("TX:");
-    ppp_debug_hexdump(data, len);
+    LOG_HEX("ppp_tx", 32, data, len);
 #endif
     /* the return data is the actually written size on successful */
     return rt_device_write(device->uart, 0, data, len);
@@ -154,6 +113,13 @@ static void ppp_status_changed(ppp_pcb *pcb, int err_code, void *ctx)
     case PPPERR_NONE: /* Connected */
         pppdev->pppif.mtu = pppif->mtu;
         ppp_netdev_refresh(&pppdev->pppif);
+        /* set default route */
+        pppapi_set_default(pcb);
+        {
+#ifdef RT_USING_NETDEV
+            netdev_set_default(netdev_get_by_name(PPP_DEVICE_NAME));
+#endif /* RT_USING_NETDEV */
+        }
         LOG_I("ppp_device connect successfully.");
         break;
     case PPPERR_PARAM:
@@ -250,9 +216,12 @@ static int ppp_recv_entry(struct ppp_device *device)
             do
             {
                 rlen = rt_device_read(device->uart, 0, &buffer[len], PPP_RECV_READ_MAX - len);
-                len += rlen;
-                if(rlen)
+#ifdef PPP_DEVICE_DEBUG_RX
+                LOG_HEX("ppp_rx", 32, &buffer[len], rlen);
+#endif
+                if (rlen > 0)
                 {
+                    len += rlen;
                     last_recv_tick = rt_tick_get_millisecond();
                 }
                 /* wait until buffer full or no more data receiving for 1ms */
@@ -262,13 +231,8 @@ static int ppp_recv_entry(struct ppp_device *device)
                     len = 0;
                 }
 
-#ifdef PPP_DEVICE_DEBUG_RX
-                LOG_D("RX:");
-                ppp_debug_hexdump(buffer, len);
-#else
                 /* slow down the speed of receive, transfer more data to ppp in once. */
                 rt_thread_mdelay(1);
-#endif
             } while (len);
         }
 
@@ -395,7 +359,7 @@ static rt_err_t ppp_device_open(struct rt_device *device, rt_uint16_t oflag)
 
     /* uart transfer into tcpip protocol stack */
     rt_device_set_rx_indicate(ppp_device->uart, ppp_device_rx_ind);
-    LOG_D("(%s) is used by ppp_device.", ppp_device->uart->parent.name);
+    LOG_D("(%.*s) is used by ppp_device.", RT_NAME_MAX, ppp_device->uart->parent.name);
 
 
     /* creat pppos */
@@ -413,8 +377,6 @@ static rt_err_t ppp_device_open(struct rt_device *device, rt_uint16_t oflag)
     ppp_device->pppif.name[0] = ppp_device->parent.parent.name[0];
     ppp_device->pppif.name[1] = ppp_device->parent.parent.name[1];
 
-    /* set default route */
-    result = pppapi_set_default(ppp_device->pcb);
     if (result != RT_EOK)
     {
         LOG_E("pppapi_set_default execute failed.");

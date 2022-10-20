@@ -19,6 +19,10 @@
 #include <lwip/dns.h>
 #include <lwip/netif.h>
 
+//#define PPP_DEVICE_DEBUG
+//#define PPP_DEVICE_DEBUG_TX
+//#define PPP_DEVICE_DEBUG_RX
+
 #ifndef PPP_DEVICE_NAME
 #define PPP_DEVICE_NAME "pp"
 #endif
@@ -46,8 +50,8 @@
 #define PPP_DROP_BUF        PPP_FRAME_MAX
 
 
-#define PPP_DEVICE_SW_VERSION           "1.1.1"
-#define PPP_DEVICE_SW_VERSION_NUM       0x10101
+#define PPP_DEVICE_SW_VERSION           "1.2.0"
+#define PPP_DEVICE_SW_VERSION_NUM       0x10200
 
 enum ppp_trans_type
 {
