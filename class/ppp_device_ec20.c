@@ -48,9 +48,9 @@ static const struct modem_chat_data mcd[] =
 #else
 static const struct modem_chat_data mcd[] =
 {
-    {"AT",           MODEM_CHAT_RESP_NOT_NEED,        10, 1, RT_FALSE},
-    {PPP_APN_CMD,    MODEM_CHAT_RESP_NOT_NEED,        1,  5, RT_FALSE},
-    {PPP_DAIL_CMD,   MODEM_CHAT_RESP_NOT_NEED,        1, 30, RT_FALSE},
+    {"AT",           MODEM_CHAT_RESP_OK,              10, 1, RT_FALSE},
+    {PPP_APN_CMD,    MODEM_CHAT_RESP_OK,              1,  5, RT_FALSE},
+    {PPP_DAIL_CMD,   MODEM_CHAT_RESP_CONNECT,         1, 30, RT_FALSE},
 };
 #endif
 
