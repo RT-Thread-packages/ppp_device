@@ -9,6 +9,7 @@
  */
 
 #include "ppp_chat.h"
+#include "ppp_device.h"
 
 #ifndef PKG_USING_CMUX
 #define DBG_TAG    "ppp.chat"
